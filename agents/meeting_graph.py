@@ -1,0 +1,110 @@
+# -*- coding: utf-8 -*-
+"""
+LangGraph 会议处理图 —— 多Agent编排核心
+
+编排模式: Pipeline + 并行 (Fan-out / Fan-in)
+
+    ┌─────────────┐
+    │   START     │
+    └──────┬──────┘
+           │
+    ┌──────┼───────┐  ← Fan-out (并行)
+    │      │       │
+    ▼      ▼       ▼
+  Summary Action Insight
+  Agent   Agent  Agent
+    │      │       │
+    └──────┼───────┘  ← Fan-in (汇聚)
+           │
+           ▼
+    ┌──────────────┐
+    │  Follow-up   │
+    │    Agent     │
+    └──────┬───────┘
+           │
+           ▼
+    ┌──────────────┐
+    │     END      │
+    └──────────────┘
+
+面试考点:
+- LangGraph 的 State/Node/Edge 分别是什么？
+- 并行执行是怎么实现的？（Fan-out + Fan-in）
+- 如果某个并行节点失败了怎么办？（错误写入state，不阻塞其他节点）
+"""
+
+from __future__ import annotations
+import asyncio
+from typing import Any, TypedDict
+from langgraph.graph import StateGraph, START, END
+from loguru import logger
+
+from .summary_agent import SummaryAgent
+from .action_agent import ActionAgent
+from .insight_agent import InsightAgent
+from .followup_agent import FollowUpAgent
+
+class GraphState(TypedDict, total=False):
+    meeting_id: str
+    status: str
+    audio_data: bytes
+    transcript: Any
+    transcript_text: str
+    summary: Any
+    actions: Any
+    insights: Any
+    followup: Any
+    errors: list[str]
+
+def build_meeting_graph(llm_client=None, jira_client=None, feishu_client=None) -> StateGraph:
+    llm = llm_client
+    jira = jira_client
+    feishu = feishu_client
+    
+    summary_agent = SummaryAgent(llm)
+    action_agent = ActionAgent(llm, jira, feishu)
+    insight_agent = InsightAgent(llm)
+    followup_agent = FollowUpAgent(feishu)
+
+    graph = StateGraph(GraphState)
+
+    graph.add_node("summary", summary_agent.process)
+    graph.add_node("action", action_agent.process)
+    graph.add_node("insight", insight_agent.process)
+    graph.add_node("followup", followup_agent.process)
+
+    graph.add_edge(START, "summary")
+    graph.add_edge(START, "action")
+    graph.add_edge(START, "insight")
+
+    graph.add_edge("summary", "followup")
+    graph.add_edge("action", "followup")
+    graph.add_edge("insight", "followup")
+
+    graph.add_edge("followup", END)
+
+    logger.info("Meeting graph built successfully")
+    return graph
+
+def compile_meeting_graph(**kwargs) -> Any:
+    graph = build_meeting_graph(**kwargs)
+    compiled = graph.compile()
+    logger.info("Meeting graph compiled successfully")
+    return compiled
+
+async def run_meeting_pipeline(meeting_id: str, transcript_text: str = "", transcript: Any = None, **kwargs) -> dict:
+    logger.info(f"Starting meeting pipeline: {meeting_id}")
+    initial_state = {
+        "meeting_id": meeting_id,
+        "transcript_text": transcript_text,
+        "transcript": transcript,
+        "errors": []
+    }
+    compiled_graph = compile_meeting_graph(**kwargs)
+    final_state = await compiled_graph.ainvoke(initial_state)
+    errors = final_state.get("errors", [])
+    if errors:
+        logger.warning(f"Pipeline completed with errors: {errors}")
+    else:
+        logger.info(f"Pipeline completed successfully for: {meeting_id}")
+    return final_state
