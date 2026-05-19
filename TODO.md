@@ -9,7 +9,8 @@
 
 ## 阶段二：核心模块抽离与迁移
 - [x] TODO 3: 提取多智能体中枢。将 `multi-agent-meeting-assistant-main/python` 目录下的 LangGraph 工作流逻辑和各个 Agent（Summary, Action, Insight, FollowUp）以及第三方集成接入迁移到新目录，补充标准架构及面试注释。
-- [ ] TODO 4: 提取离线媒体处理与生成引擎。将 `noteking-pro-main` 中的降噪、说话人分离处理逻辑，以及丰富版式生成（LaTeX PDF、Mermaid 思维导图）抽离到新目录的服务层。
+- [x] TODO 4: 提取离线媒体处理与生成引擎。将 `noteking-pro-main` 中的降噪、说话人分离处理逻辑，以及丰富版式生成（LaTeX PDF、Mermaid 思维导图）抽离到新目录的服务层。
+- [x] TODO 4.5: 模板与工作流重构解耦。剥离 PDF 内置 CSS/LaTeX 模板至 `assets/` 目录；将 `meeting_graph.py` 重构为 `workflows/meeting_workflow.py` 并清理 `agents/` 包，完全符合 Fail-Fast 与拒绝过度兼容原则。
 
 ## 阶段三：流程缝合与闭环改造
 - [ ] TODO 5: 拓展全渠道输入网关。在 API 层增加离线任务入口（本地音视频文件/在线URL），经过降噪处理后喂给 LangGraph 状态机。

@@ -54,3 +54,4 @@ Thumbs.db
 /reports/*.md
 /reports/*.pdf
 commit_msg.txt
+commit_msg_amend.txt

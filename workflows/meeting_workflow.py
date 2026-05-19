@@ -1,36 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 LangGraph 会议处理图 —— 多Agent编排核心
-
-编排模式: Pipeline + 并行 (Fan-out / Fan-in)
-
-    ┌─────────────┐
-    │   START     │
-    └──────┬──────┘
-           │
-    ┌──────┼───────┐  ← Fan-out (并行)
-    │      │       │
-    ▼      ▼       ▼
-  Summary Action Insight
-  Agent   Agent  Agent
-    │      │       │
-    └──────┼───────┘  ← Fan-in (汇聚)
-           │
-           ▼
-    ┌──────────────┐
-    │  Follow-up   │
-    │    Agent     │
-    └──────┬───────┘
-           │
-           ▼
-    ┌──────────────┐
-    │     END      │
-    └──────────────┘
-
-面试考点:
-- LangGraph 的 State/Node/Edge 分别是什么？
-- 并行执行是怎么实现的？（Fan-out + Fan-in）
-- 如果某个并行节点失败了怎么办？（错误写入state，不阻塞其他节点）
+- 编排模式: Pipeline + 并行 (Fan-out / Fan-in)
 """
 
 from __future__ import annotations
@@ -39,10 +10,10 @@ from typing import Any, TypedDict
 from langgraph.graph import StateGraph, START, END
 from loguru import logger
 
-from .summary_agent import SummaryAgent
-from .action_agent import ActionAgent
-from .insight_agent import InsightAgent
-from .followup_agent import FollowUpAgent
+from agents.summary_agent import SummaryAgent
+from agents.action_agent import ActionAgent
+from agents.insight_agent import InsightAgent
+from agents.followup_agent import FollowUpAgent
 
 class GraphState(TypedDict, total=False):
     meeting_id: str
