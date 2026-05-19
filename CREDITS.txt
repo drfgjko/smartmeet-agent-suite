@@ -1,0 +1,15 @@
+# 致谢与第三方开源声明 (Credits & Open Source Notices)
+
+本项目 (SmartMeet Agent Suite) 的核心架构与底层处理引擎，深度参考、整合并修改了以下优秀的开源项目：
+
+1. **Multi-Agent Meeting Assistant**
+   - 协议：MIT License
+   - 版权声明：Copyright (c) 2026 Multi-Agent Meeting Assistant Contributors
+   - 整合说明：本项目的 LangGraph 多智能体并行流（Summary, Action, Insight 等 Agent 节点）基于该项目的架构思想进行了重构和定制开发。
+
+2. **NoteKing Pro**
+   - 协议：MIT License
+   - 版权声明：Copyright (c) 2026 NoteKing Contributors
+   - 整合说明：本项目的媒体预处理网关（三级降噪、说话人分离）及多格式资产生成引擎（LaTeX PDF、思维导图模板）剥离并重写自该项目的核心库。
+
+特此向以上开源项目的贡献者表示由衷的感谢！本套件在遵守 MIT 协议的前提下开源，致力于为企业级私有化部署和全链路自动化提供可行性参考。
