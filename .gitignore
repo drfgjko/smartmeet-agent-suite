@@ -55,3 +55,4 @@ Thumbs.db
 /reports/*.pdf
 commit_msg.txt
 commit_msg_amend.txt
+CODE_REVIEW_MODULE_INDEPENDENCE.md

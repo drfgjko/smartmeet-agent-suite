@@ -7,9 +7,18 @@ Summary Agent（摘要Agent）
 """
 
 from __future__ import annotations
-import json
-from typing import Any
 from loguru import logger
+
+from schemas import SummaryOutput, TopicDetail
+
+
+def _state_value(state: object, key: str, default):
+    if hasattr(state, key):
+        value = getattr(state, key)
+        return default if value is None else value
+    if isinstance(state, dict):
+        return state.get(key, default)
+    return default
 
 SUMMARY_SYSTEM_PROMPT = """你是一位专业的会议纪要助手。你的任务是根据会议转写文本，生成清晰、结构化的会议纪要。
 要求：
@@ -59,43 +68,48 @@ class SummaryAgent:
     def __init__(self, llm_client=None):
         self.llm = llm_client
 
-    async def process(self, state: dict) -> dict:
-        meeting_id = state.get("meeting_id", "unknown")
+    async def process(self, state: object) -> dict:
+        meeting_id = _state_value(state, "meeting_id", "unknown")
         logger.info(f"[SummaryAgent] Processing meeting: {meeting_id}")
-        transcript_text = state.get("transcript_text", "")
+        transcript_text = _state_value(state, "transcript_text", "")
         if not transcript_text:
             logger.warning("[SummaryAgent] No transcript text available")
-            state["summary"] = {
-                "title": "未知会议", "date": "", "participants": [], "topics": [], "decisions": [], "next_steps": []
-            }
-            return state
+            return {"summary": SummaryOutput(title="未知会议")}
         try:
             summary = await self._generate_summary(transcript_text)
-            state["summary"] = summary
-            logger.info(f"[SummaryAgent] Summary generated: {summary.get('title')}")
+            logger.info(f"[SummaryAgent] Summary generated: {summary.title}")
+            return {"summary": summary}
         except Exception as e:
             logger.error(f"[SummaryAgent] Error: {e}")
-            state["errors"] = state.get("errors", []) + [f"SummaryAgent: {str(e)}"]
-            state["summary"] = self._generate_fallback_summary(transcript_text)
-        return state
+            return {
+                "errors": _state_value(state, "errors", []) + [f"SummaryAgent: {str(e)}"],
+                "summary": self._generate_fallback_summary(transcript_text),
+            }
 
-    async def _generate_summary(self, transcript: str) -> dict:
+    async def _generate_summary(self, transcript: str) -> SummaryOutput:
         messages = [
             {"role": "system", "content": SUMMARY_SYSTEM_PROMPT},
             {"role": "user", "content": SUMMARY_USER_PROMPT.format(transcript=transcript)}
         ]
+        if self.llm is None:
+            return self._generate_fallback_summary(transcript)
         result = await self.llm.chat_json(messages=messages, temperature=0.3, max_tokens=4096)
-        return {
-            "title": result.get("title", "会议纪要"),
-            "date": result.get("date", ""),
-            "participants": result.get("participants", []),
-            "topics": result.get("topics", []),
-            "decisions": result.get("decisions", []),
-            "next_steps": result.get("next_steps", [])
-        }
+        topics = [
+            TopicDetail.model_validate(topic)
+            for topic in result.get("topics", [])
+            if isinstance(topic, dict)
+        ]
+        return SummaryOutput(
+            title=result.get("title", "会议纪要"),
+            date=result.get("date", ""),
+            participants=result.get("participants", []),
+            topics=topics,
+            decisions=result.get("decisions", []),
+            next_steps=result.get("next_steps", []),
+        )
 
     @staticmethod
-    def _generate_fallback_summary(transcript: str) -> dict:
+    def _generate_fallback_summary(transcript: str) -> SummaryOutput:
         lines = transcript.strip().split("\n")
         speakers = set()
         for line in lines:
@@ -105,11 +119,19 @@ class SummaryAgent:
                 if "]" in speaker_part:
                     speaker_part = speaker_part.split("]", 1)[-1].strip()
                 speakers.add(speaker_part)
-        return {
-            "title": "会议纪要（自动摘要降级模式）",
-            "date": "",
-            "participants": list(speakers),
-            "topics": [{"title": "会议内容", "discussion_points": ["（LLM调用失败，请查看原始转写文本）"], "participants": list(speakers), "conclusion": ""}],
-            "decisions": [],
-            "next_steps": []
-        }
+        participants = sorted(speakers)
+        return SummaryOutput(
+            title="会议纪要（自动摘要降级模式）",
+            date="",
+            participants=participants,
+            topics=[
+                TopicDetail(
+                    title="会议内容",
+                    discussion_points=["（LLM调用失败，请查看原始转写文本）"],
+                    participants=participants,
+                    conclusion="",
+                )
+            ],
+            decisions=[],
+            next_steps=[],
+        )

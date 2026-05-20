@@ -212,16 +212,18 @@ class GroqWhisperEngine(ASREngine):
 class OpenAIWhisperEngine(ASREngine):
     name = "openai_whisper"
 
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str, base_url: str | None = None, model: str = "whisper-1"):
         self.api_key = api_key
+        self.base_url = base_url
+        self.model = model
 
     def transcribe(self, audio_path: Path, language: str = "zh") -> SubtitleResult:
         from openai import OpenAI
 
-        client = OpenAI(api_key=self.api_key)
+        client = OpenAI(api_key=self.api_key, base_url=self.base_url) if self.base_url else OpenAI(api_key=self.api_key)
         with open(audio_path, "rb") as f:
             transcript = client.audio.transcriptions.create(
-                model="whisper-1",
+                model=self.model,
                 file=f,
                 response_format="verbose_json",
                 language=language,
@@ -238,7 +240,7 @@ class OpenAIWhisperEngine(ASREngine):
 
     @classmethod
     def is_available(cls) -> bool:
-        return bool(os.getenv("OPENAI_API_KEY") or os.getenv("MINIMAX_API_KEY"))
+        return bool(os.getenv("ASR_API_KEY"))
 
 def detect_language(audio_path: Path) -> str:
     try:
@@ -262,8 +264,14 @@ def _create_engine(language: str = "zh") -> ASREngine:
     pref = os.getenv("ASR_ENGINE", "auto")
     model_size = os.getenv("WHISPER_MODEL_SIZE", "base")
     device = os.getenv("WHISPER_DEVICE", "auto")
-    openai_key = os.getenv("OPENAI_API_KEY") or os.getenv("MINIMAX_API_KEY", "")
     groq_key = os.getenv("GROQ_API_KEY", "")
+
+    # 获取 ASR 专属 API Key
+    asr_key = os.getenv("ASR_API_KEY")
+    # 获取 ASR 专属 Base URL
+    asr_base_url = os.getenv("ASR_BASE_URL")
+    # 获取 ASR 专属模型名称
+    asr_model = os.getenv("ASR_MODEL") or "whisper-1"
 
     if pref == "funasr" and FunASREngine.is_available():
         return FunASREngine()
@@ -273,8 +281,8 @@ def _create_engine(language: str = "zh") -> ASREngine:
         return FasterWhisperEngine(model_size, device)
     if pref == "groq" and groq_key:
         return GroqWhisperEngine(groq_key)
-    if pref == "openai" and openai_key:
-        return OpenAIWhisperEngine(openai_key)
+    if pref == "openai" and asr_key:
+        return OpenAIWhisperEngine(asr_key, base_url=asr_base_url, model=asr_model)
 
     if pref == "auto":
         if is_chinese_dominant(language) and FunASREngine.is_available():
@@ -286,8 +294,8 @@ def _create_engine(language: str = "zh") -> ASREngine:
 
     if groq_key:
         return GroqWhisperEngine(groq_key)
-    if openai_key:
-        return OpenAIWhisperEngine(openai_key)
+    if asr_key:
+        return OpenAIWhisperEngine(asr_key, base_url=asr_base_url, model=asr_model)
     if FasterWhisperEngine.is_available():
         return FasterWhisperEngine(model_size, device)
 

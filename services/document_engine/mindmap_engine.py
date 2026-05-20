@@ -1,11 +1,22 @@
 # -*- coding: utf-8 -*-
+"""
+Mermaid Mindmap Generator（思维导图生成引擎）
+- 基于 LLM 驱动的会议脑图生成：根据会议纪要自动提炼核心主旨，并转换为标准 Mermaid 脑图代码
+- 鲁棒解析机制：支持自动剥离大模型输出的 markdown 代码块标记，保证提取纯净的 Mermaid 文本
+- 架构解耦设计：作为独立 Pipeline 节点，支持传入外部 LLM 客户端与自定义输出路径，便于服务集成
+- 异常退化保护：在调用 LLM 失败或格式解析异常时，支持优雅返回原始生成结果并保证后续流程不中断
+
+面试考点：
+- 如何保证大模型输出纯净的 Mermaid 语法而不夹杂解释文字？（System Role 设定 + Few-shot 约束 + 正则表达式匹配清洗）
+- 思维导图的根节点渲染语法与子分支层级关系如何组织？（使用缩进与特定的括号声明，如 root((主题))）
+"""
 
 from __future__ import annotations
 
 import os
 import re
 from pathlib import Path
-from openai import OpenAI
+from typing import Any
 
 MINDMAP_PROMPT = """根据以下会议内容，生成一个标准 Mermaid 格式的思维导图代码。
 
@@ -23,20 +34,16 @@ MINDMAP_PROMPT = """根据以下会议内容，生成一个标准 Mermaid 格式
 class MindMapPipeline:
     def __init__(
         self,
-        api_key: str | None = None,
-        base_url: str | None = None,
-        model: str | None = None,
+        llm_client: Any = None,
     ):
-        self.api_key = api_key or os.getenv("MINIMAX_API_KEY") or os.getenv("OPENAI_API_KEY", "")
-        self.base_url = base_url or os.getenv("NOTEKING_LLM_BASE_URL") or "https://api.minimax.chat/v1"
-        self.model = model or os.getenv("NOTEKING_LLM_MODEL") or "abab6.5s-chat"
+        from services.integrations.llm_client import create_llm_client
+        self.llm = llm_client or create_llm_client()
 
     def generate_mindmap(self, text: str) -> str:
-        client = OpenAI(api_key=self.api_key, base_url=self.base_url)
         prompt = MINDMAP_PROMPT.format(text=text)
         
-        response = client.chat.completions.create(
-            model=self.model,
+        response = self.llm._sync_client.chat.completions.create(
+            model=self.llm.model,
             messages=[
                 {"role": "system", "content": "You are a professional business analyst."},
                 {"role": "user", "content": prompt}

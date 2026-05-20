@@ -2,7 +2,7 @@
 """
 Action Agent（待办Agent）
 - 从转写文本中提取行动项（谁/做什么/截止时间）
-- 自动同步到 Jira Cloud 和飞书任务
+- 外部同步逻辑已拆分至 services/integrations/action_sync.py
 - 支持幂等性保证（防止重复创建）
 """
 
@@ -11,6 +11,18 @@ import json
 from datetime import datetime
 from typing import Any
 from loguru import logger
+
+from schemas import ActionItem, ActionOutput, SyncStatus
+from services.integrations.action_sync import sync_actions_to_external
+
+
+def _state_value(state: object, key: str, default):
+    if hasattr(state, key):
+        value = getattr(state, key)
+        return default if value is None else value
+    if isinstance(state, dict):
+        return state.get(key, default)
+    return default
 
 ACTION_SYSTEM_PROMPT = """你是一位专业的任务提取助手。你的任务是从会议转写文本中提取所有行动项/待办事项。
 提取规则：
@@ -48,7 +60,7 @@ class ActionAgent:
     架构说明:
     1. 从 state 读取 transcript_text
     2. LLM 提取行动项三元组（谁/做什么/截止时间）
-    3. 并行同步到 Jira 和飞书
+    3. 委托 action_sync 服务并行同步到 Jira 和飞书
     4. 记录同步状态
 
     面试考点:
@@ -61,33 +73,38 @@ class ActionAgent:
         self.jira = jira_client
         self.feishu = feishu_client
 
-    async def process(self, state: dict) -> dict:
-        meeting_id = state.get("meeting_id", "unknown")
+    async def process(self, state: object) -> dict:
+        meeting_id = _state_value(state, "meeting_id", "unknown")
         logger.info(f"[ActionAgent] Processing meeting: {meeting_id}")
-        transcript_text = state.get("transcript_text", "")
+        transcript_text = _state_value(state, "transcript_text", "")
         if not transcript_text:
             logger.warning("[ActionAgent] No transcript text available")
-            state["actions"] = {"meeting_id": meeting_id, "action_items": []}
-            return state
+            output = ActionOutput(meeting_id=meeting_id)
+            return {"actions": output}
         try:
             action_items = await self._extract_actions(transcript_text)
-            synced_items = await self._sync_to_external(action_items, meeting_id)
-            state["actions"] = {
-                "meeting_id": meeting_id,
-                "action_items": synced_items,
-                "sync_status": {
-                    "jira": "enabled" if self.jira and getattr(self.jira, "is_enabled", False) else "disabled",
-                    "feishu": "enabled" if self.feishu and getattr(self.feishu, "is_enabled", False) else "disabled",
-                },
-            }
+            synced_items, sync_status = await sync_actions_to_external(
+                items=action_items,
+                meeting_id=meeting_id,
+                jira_client=self.jira,
+                feishu_client=self.feishu,
+            )
+            output = ActionOutput(
+                meeting_id=meeting_id,
+                action_items=synced_items,
+                sync_status=sync_status,
+            )
             logger.info(f"[ActionAgent] Extracted {len(synced_items)} action items")
+            return {"actions": output}
         except Exception as e:
             logger.error(f"[ActionAgent] Error: {e}")
-            state["errors"] = state.get("errors", []) + [f"ActionAgent: {str(e)}"]
-            state["actions"] = {"meeting_id": meeting_id, "action_items": []}
-        return state
+            output = ActionOutput(meeting_id=meeting_id)
+            return {
+                "errors": _state_value(state, "errors", []) + [f"ActionAgent: {str(e)}"],
+                "actions": output,
+            }
 
-    async def _extract_actions(self, transcript: str) -> list[dict]:
+    async def _extract_actions(self, transcript: str) -> list[ActionItem]:
         today = datetime.now().strftime("%Y-%m-%d")
         messages = [
             {"role": "system", "content": ACTION_SYSTEM_PROMPT},
@@ -98,44 +115,11 @@ class ActionAgent:
         result = await self.llm.chat_json(messages=messages, temperature=0.2, max_tokens=2048)
         items = []
         for raw in result.get("action_items", []):
-            items.append({
-                "assignee": raw.get("assignee", "未指定"),
-                "task": raw.get("task", ""),
-                "deadline": raw.get("deadline", ""),
-                "priority": raw.get("priority", "medium").lower(),
-                "context": raw.get("context", ""),
-            })
+            items.append(ActionItem(
+                assignee=raw.get("assignee", "未指定"),
+                task=raw.get("task", ""),
+                deadline=raw.get("deadline", ""),
+                priority=raw.get("priority", "medium").lower(),
+                context=raw.get("context", ""),
+            ))
         return items
-
-    async def _sync_to_external(self, items: list[dict], meeting_id: str) -> list[dict]:
-        synced = []
-        for item in items:
-            if self.jira and getattr(self.jira, "is_enabled", False):
-                try:
-                    jira_result = self.jira.create_issue(
-                        summary=f"[会议待办] {item['task']}",
-                        description=f"来源：会议 {meeting_id}\n负责人：{item['assignee']}\n上下文：{item['context']}",
-                        assignee=self.jira.resolve_user(item["assignee"]),
-                        due_date=item["deadline"] or None,
-                        priority=item["priority"],
-                        labels=["meeting-auto", f"meeting-{meeting_id}"],
-                    )
-                    item["jira_issue_key"] = jira_result["key"]
-                except Exception as e:
-                    logger.error(f"Failed to sync to Jira: {item['task']} - {e}")
-            if self.feishu and getattr(self.feishu, "is_enabled", False):
-                try:
-                    due_ts = None
-                    if item["deadline"]:
-                        due_dt = datetime.strptime(item["deadline"], "%Y-%m-%d")
-                        due_ts = int(due_dt.timestamp())
-                    feishu_result = await self.feishu.create_task(
-                        summary=f"[会议待办] {item['task']}",
-                        description=f"负责人：{item['assignee']}\n来源会议：{meeting_id}\n上下文：{item['context']}",
-                        due_timestamp=due_ts,
-                    )
-                    item["feishu_task_id"] = feishu_result.get("task_id")
-                except Exception as e:
-                    logger.error(f"Failed to sync to Feishu: {item['task']} - {e}")
-            synced.append(item)
-        return synced

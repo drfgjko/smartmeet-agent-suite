@@ -46,3 +46,5 @@ dependencies:
       - apscheduler>=3.10.0
       - rich>=13.0
       - click>=8.0
+      # === Dev / Test ===
+      - pytest>=8.0

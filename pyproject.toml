@@ -63,8 +63,13 @@ dependencies = [
     "click>=8.0"
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
 [project.scripts]
 omnisync = "cli.main:main"
 
 [tool.setuptools.packages.find]
-include = ["api*", "core*", "agents*", "services*", "cli*"]
+include = ["api*", "core*", "agents*", "services*", "cli*", "schemas*", "workflows*"]

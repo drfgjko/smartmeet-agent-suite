@@ -356,15 +356,12 @@ class LaTeXNoteBuilder:
 class PDFPipeline:
     def __init__(
         self,
-        api_key: str | None = None,
-        base_url: str | None = None,
-        model: str | None = None,
+        llm_client: Any = None,
         max_tokens: int = 4000,
         concurrency: int = 3,
     ):
-        self.api_key = api_key or os.getenv("MINIMAX_API_KEY") or os.getenv("OPENAI_API_KEY", "")
-        self.base_url = base_url or os.getenv("NOTEKING_LLM_BASE_URL") or "https://api.minimax.chat/v1"
-        self.model = model or os.getenv("NOTEKING_LLM_MODEL") or "abab6.5s-chat"
+        from services.integrations.llm_client import create_llm_client
+        self.llm = llm_client or create_llm_client()
         self.max_tokens = max_tokens
         self.concurrency = concurrency
         self.html_builder = HTMLNoteBuilder()
@@ -396,8 +393,8 @@ class PDFPipeline:
 
         duration = 0.0
         if video_path.exists():
-            from services.media_engine.frames import _get_duration
-            duration = _get_duration(video_path)
+            from services.media_engine import get_duration
+            duration = get_duration(video_path)
 
         if video_path.exists():
             frames = extract_keyframes(video_path, frames_dir, max_frames=max_frames)
@@ -552,13 +549,12 @@ CONTENT REQUIREMENTS:
 
     def _call_llm(self, prompt: str, retries: int = 3) -> str:
         system = "You are a professional technical education expert. Output lecture notes directly in Markdown format with the specified markers. Do not wrap output in think tags."
-        client = OpenAI(api_key=self.api_key, base_url=self.base_url)
 
         for attempt in range(retries):
             try:
                 full = ""
-                stream = client.chat.completions.create(
-                    model=self.model,
+                stream = self.llm._sync_client.chat.completions.create(
+                    model=self.llm.model,
                     messages=[
                         {"role": "system", "content": system},
                         {"role": "user", "content": prompt},
