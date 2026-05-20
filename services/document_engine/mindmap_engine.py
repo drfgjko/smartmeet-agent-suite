@@ -41,18 +41,15 @@ class MindMapPipeline:
 
     def generate_mindmap(self, text: str) -> str:
         prompt = MINDMAP_PROMPT.format(text=text)
-        
-        response = self.llm._sync_client.chat.completions.create(
-            model=self.llm.model,
+
+        raw_output = self.llm.chat_sync(
             messages=[
                 {"role": "system", "content": "You are a professional business analyst."},
-                {"role": "user", "content": prompt}
+                {"role": "user", "content": prompt},
             ],
             temperature=0.2,
             max_tokens=2000,
         )
-        
-        raw_output = response.choices[0].message.content or ""
         match = re.search(r"```mermaid\s*(.*?)\s*```", raw_output, re.DOTALL)
         if match:
             return match.group(1).strip()

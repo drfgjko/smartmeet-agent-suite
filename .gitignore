@@ -51,6 +51,7 @@ Thumbs.db
 
 # Project Specific
 *.log
+tmp_ws_test
 /reports/*.md
 /reports/*.pdf
 commit_msg.txt

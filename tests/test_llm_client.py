@@ -79,3 +79,17 @@ def test_create_llm_client_no_legacy_fallbacks():
     with mock.patch.dict(os.environ, env):
         with pytest.raises(ValueError):
             create_llm_client()
+
+
+def test_chat_stream_sync_uses_sync_client():
+    client = UnifiedLLMClient(api_key="test-key", base_url="http://example.com", model="test-model")
+    mock_stream = object()
+    with mock.patch.object(client._sync_client.chat.completions, "create", return_value=mock_stream) as mocked_create:
+        result = client.chat_stream_sync(
+            messages=[{"role": "user", "content": "hello"}],
+            temperature=0.2,
+            max_tokens=16,
+            timeout=30,
+        )
+    assert result is mock_stream
+    mocked_create.assert_called_once()

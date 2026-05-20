@@ -22,7 +22,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 from loguru import logger
-from openai import OpenAI
 
 from services.media_engine import ExtractedFrame, extract_keyframes, align_frames_to_subtitles, download_video
 
@@ -553,15 +552,13 @@ CONTENT REQUIREMENTS:
         for attempt in range(retries):
             try:
                 full = ""
-                stream = self.llm._sync_client.chat.completions.create(
-                    model=self.llm.model,
+                stream = self.llm.chat_stream_sync(
                     messages=[
                         {"role": "system", "content": system},
                         {"role": "user", "content": prompt},
                     ],
-                    max_tokens=self.max_tokens,
-                    stream=True,
                     temperature=0.2,
+                    max_tokens=self.max_tokens,
                     timeout=120,
                 )
                 for chunk in stream:

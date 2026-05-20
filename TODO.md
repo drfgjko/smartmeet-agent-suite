@@ -23,12 +23,12 @@
 - [x] 补充 `pytest` 开发依赖至 `environment.yml` 和 `pyproject.toml`
 
 ## 阶段三：流程缝合与闭环改造
-- [ ] TODO 5: 拓展全渠道输入网关。在 API 层增加离线任务入口（本地音视频文件/在线URL），经过预处理降噪、ASR语音转录、说话人分割与关键帧提取对齐后喂给 LangGraph 状态机。
-  - [ ] 5.1: 在 [api/](file:///d:/Workspace/agent-project/smartmeet-agent-suite/api) 目录下新建 FastAPI 核心骨架 `main.py` 及路由模块。
-  - [ ] 5.2: 迁移 `noteking-pro` 的 `/api/v1/recording/upload` 接口，支持本地音视频文件上传到临时目录。
-  - [ ] 5.3: 迁移 `noteking-pro` 的音视频在线链接抓取（支持 Bilibili/YouTube）与转录提取逻辑。
-  - [ ] 5.4: 在 [api/](file:///d:/Workspace/agent-project/smartmeet-agent-suite/api) 层实现统一的音视频预处理流水线（降噪 -> ASR转录 -> 说话人分割 -> 帧提取），并与 [workflows/meeting_workflow.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/workflows/meeting_workflow.py) 中的 LangGraph 状态机无缝对接。
-  - [ ] 5.5: 合并实时 WebSocket 接口 `/ws/meeting/{meeting_id}`，确保能够实时录音并自动流式调用转录与多 Agent 状态机。
+- [x] TODO 5: 拓展全渠道输入网关。在 API 层增加离线任务入口（本地音视频文件/在线URL），经过预处理降噪、ASR语音转录、说话人分割与关键帧提取对齐后喂给 LangGraph 状态机。
+  - [x] 5.1: 在 [api/](file:///d:/Workspace/agent-project/smartmeet-agent-suite/api) 目录下新建 FastAPI 核心骨架 `main.py` 及路由模块。
+  - [x] 5.2: 迁移 `noteking-pro` 的 `/api/v1/recording/upload` 接口，支持本地音视频文件上传到临时目录。
+  - [x] 5.3: 迁移 `noteking-pro` 的音视频在线链接抓取（支持 Bilibili/YouTube）与转录提取逻辑。
+  - [x] 5.4: 在 [api/](file:///d:/Workspace/agent-project/smartmeet-agent-suite/api) 层实现统一的音视频预处理流水线（降噪 -> ASR转录 -> 说话人分割 -> 帧提取），并与 [workflows/meeting_workflow.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/workflows/meeting_workflow.py) 中的 LangGraph 状态机无缝对接。
+  - [x] 5.5: 合并实时 WebSocket 接口 `/ws/meeting/{meeting_id}`，确保能够实时录音并自动流式调用转录与多 Agent 状态机。
 - [ ] TODO 6: 改造资产生成与分发节点。升级原有的 Follow-up Agent，使其能够调用生成引擎打包 PDF 和思维导图附件，并通过飞书/Jira完成执行流的硬闭环。
   - [ ] 6.1: 改造 [agents/followup_agent.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/agents/followup_agent.py)，在 `process` 方法中引入 [services/document_engine/pdf_engine.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/document_engine/pdf_engine.py) 与 [services/document_engine/mindmap_engine.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/document_engine/mindmap_engine.py)。
   - [ ] 6.2: 集成 LaTeX PDF 讲义渲染与 Mermaid 思维导图自动生成，渲染出精美的最终资产并保存到输出目录。

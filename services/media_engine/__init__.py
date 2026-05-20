@@ -10,6 +10,7 @@ from .transcriber import transcribe, detect_language
 from .diarizer import diarize, DiarizationResult, DiarizedSegment
 from .frames import ExtractedFrame, extract_keyframes, align_frames_to_subtitles
 from .downloader import VideoMeta, get_video_info, download_subtitles, download_audio, download_video, download_thumbnail, list_playlist_entries
+from .parser import Platform, LinkType, ParsedLink, parse_link
 
 __all__ = [
     "preprocess",
@@ -35,4 +36,8 @@ __all__ = [
     "download_video",
     "download_thumbnail",
     "list_playlist_entries",
+    "Platform",
+    "LinkType",
+    "ParsedLink",
+    "parse_link",
 ]

@@ -116,6 +116,30 @@ class UnifiedLLMClient:
             )
         return clean_and_parse_json(text)
 
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))
+    def chat_stream_sync(
+        self,
+        messages: list[dict[str, str]],
+        temperature: float = 0.7,
+        max_tokens: int = 4096,
+        response_format: dict | None = None,
+        timeout: float | None = None,
+    ):
+        """同步流式文本生成，返回 OpenAI SDK 流式迭代器。"""
+        payload: dict[str, Any] = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "stream": True,
+        }
+        if response_format:
+            payload["response_format"] = response_format
+        if timeout is not None:
+            payload["timeout"] = timeout
+
+        return self._sync_client.chat.completions.create(**payload)
+
     async def close(self):
         """关闭异步连接池"""
         await self._async_client.close()
