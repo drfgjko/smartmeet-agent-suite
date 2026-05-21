@@ -7,7 +7,6 @@ Report Renderer Service
 
 from __future__ import annotations
 
-import os
 import shutil
 import asyncio
 import tempfile

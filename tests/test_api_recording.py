@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-FastAPI Route and WebSocket Integration Tests
-- 验证上传接口, Scenes 场景列表接口
-- 利用 unittest.mock 拦截媒体引擎，验证 Process 离线处理接口和 SSE 流式推送
+FastAPI 路由与 WebSocket 集成测试
+- 验证上传接口、离线处理接口和 SSE 流式推送
+- 利用 unittest.mock 拦截媒体引擎，验证离线处理接口和 SSE 流式推送
 - 验证 WebSocket 实时音频帧处理与中间状态流式推送
 """
 
@@ -33,13 +33,18 @@ def test_health_endpoint():
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
 
-def test_scenes_endpoint():
-    response = client.get("/api/v1/recording/scenes")
-    assert response.status_code == 200
-    scenes = response.json()
-    assert isinstance(scenes, list)
-    assert len(scenes) > 0
-    assert scenes[0]["name"] == "meeting"
+def test_reports_static_endpoint():
+    reports_dir = Path(__file__).resolve().parents[1] / "reports"
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    report_path = reports_dir / "test-report.md"
+    report_path.write_text("# test report\n", encoding="utf-8")
+
+    try:
+        response = client.get("/reports/test-report.md")
+        assert response.status_code == 200
+        assert response.text.strip() == "# test report"
+    finally:
+        report_path.unlink(missing_ok=True)
 
 def test_upload_endpoint():
     file_content = b"fake audio data"
@@ -72,7 +77,6 @@ def test_process_endpoint(mock_run_offline_pipeline):
             "/api/v1/recording/process",
             data={
                 "file_id": "some-id",
-                "template": "meeting_minutes",
                 "denoise_level": 1,
                 "extract_frames": False
             }
@@ -87,6 +91,7 @@ def test_process_endpoint(mock_run_offline_pipeline):
     assert res_data["actions"]["action_items"][0]["assignee"] == "张三"
     mock_run_offline_pipeline.assert_called_once()
     assert len(mock_run_offline_pipeline.call_args[1]["meeting_id"]) == 12
+    assert "template" not in mock_run_offline_pipeline.call_args[1]
 
 @patch("api.routes.recording.run_offline_pipeline")
 def test_process_stream_endpoint(mock_run_offline_pipeline):
@@ -133,6 +138,7 @@ def test_process_stream_endpoint(mock_run_offline_pipeline):
     assert done_event["summary"]["title"] == "测试流式摘要"
     mock_run_offline_pipeline.assert_called_once()
     assert mock_run_offline_pipeline.call_args[1]["meeting_id"] == done_event["meeting_id"]
+    assert "template" not in mock_run_offline_pipeline.call_args[1]
 
 @patch("api.routes.websocket.run_meeting_pipeline")
 def test_websocket_demo_mode(mock_run_pipeline):

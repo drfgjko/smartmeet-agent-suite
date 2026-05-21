@@ -16,10 +16,11 @@ from agents.followup_agent import FollowUpAgent
 from schemas import MeetingGraphState
 
 from services.integrations.llm_client import create_llm_client
+from services.integrations.jira_client import JiraClient
+from services.integrations.feishu_client import FeishuClient
+from services.media_engine import DiarizationResult, ExtractedFrame
 
 def build_meeting_graph(llm_client=None, jira_client=None, feishu_client=None) -> StateGraph:
-    from services.integrations.jira_client import JiraClient
-    from services.integrations.feishu_client import FeishuClient
 
     llm = llm_client or create_llm_client()
     jira = jira_client or JiraClient()
@@ -49,8 +50,6 @@ def build_meeting_graph(llm_client=None, jira_client=None, feishu_client=None) -
 
     logger.info("Meeting graph built successfully")
     return graph
-
-from services.media_engine import DiarizationResult, ExtractedFrame
 
 def compile_meeting_graph(
     llm_client: Any = None,

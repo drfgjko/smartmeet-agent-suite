@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 import os
+from pathlib import Path
 from typing import Any
 from loguru import logger
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -81,7 +82,6 @@ class JiraClient:
         """
         上传文件作为 Jira Issue 的附件
         """
-        from pathlib import Path
         if not self._enabled:
             logger.warning("Jira integration not configured, skipping add_attachment")
             return False

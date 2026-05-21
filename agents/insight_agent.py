@@ -13,15 +13,7 @@ from typing import Any
 from loguru import logger
 
 from schemas import InsightOutput, SpeakerStat
-
-
-def _state_value(state: object, key: str, default):
-    if hasattr(state, key):
-        value = getattr(state, key)
-        return default if value is None else value
-    if isinstance(state, dict):
-        return state.get(key, default)
-    return default
+from ._utils import _state_value
 
 INSIGHT_SYSTEM_PROMPT = """你是一位专业的会议分析师。请分析以下会议转写文本，提供多维度的会议洞察。
 分析维度：

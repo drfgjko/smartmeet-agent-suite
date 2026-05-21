@@ -71,7 +71,7 @@ dev = [
 ]
 
 [project.scripts]
-omnisync = "cli.main:main"
+smartmeet = "cli.main:main"
 
 [tool.setuptools.packages.find]
 include = ["api*", "core*", "agents*", "services*", "cli*", "schemas*", "workflows*"]

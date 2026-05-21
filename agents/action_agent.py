@@ -7,22 +7,14 @@ Action Agent（待办Agent）
 """
 
 from __future__ import annotations
-import json
+
 from datetime import datetime
 from typing import Any
 from loguru import logger
 
 from schemas import ActionItem, ActionOutput, SyncStatus
 from services.integrations.action_sync import sync_actions_to_external
-
-
-def _state_value(state: object, key: str, default):
-    if hasattr(state, key):
-        value = getattr(state, key)
-        return default if value is None else value
-    if isinstance(state, dict):
-        return state.get(key, default)
-    return default
+from ._utils import _state_value
 
 ACTION_SYSTEM_PROMPT = """你是一位专业的任务提取助手。你的任务是从会议转写文本中提取所有行动项/待办事项。
 提取规则：

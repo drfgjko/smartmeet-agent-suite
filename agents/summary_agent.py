@@ -10,15 +10,7 @@ from __future__ import annotations
 from loguru import logger
 
 from schemas import SummaryOutput, TopicDetail
-
-
-def _state_value(state: object, key: str, default):
-    if hasattr(state, key):
-        value = getattr(state, key)
-        return default if value is None else value
-    if isinstance(state, dict):
-        return state.get(key, default)
-    return default
+from ._utils import _state_value
 
 SUMMARY_SYSTEM_PROMPT = """你是一位专业的会议纪要助手。你的任务是根据会议转写文本，生成清晰、结构化的会议纪要。
 要求：

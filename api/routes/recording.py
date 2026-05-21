@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Recording Routes
+录制处理路由
 - 处理本地音频文件上传
 - 处理离线任务流水线（支持本地文件路径与在线 URL 抓取解析）
-- 支持 Server-Sent Events (SSE) 进度推送
+- 支持基于 Server-Sent Events（SSE）的进度推送
 """
 
 from __future__ import annotations
@@ -26,9 +26,47 @@ router = APIRouter(prefix="/api/v1/recording", tags=["recording"])
 _UPLOAD_DIR = Path(tempfile.gettempdir()) / "smartmeet_uploads"
 _UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
+# 允许通过 file_path 直接访问的基目录（resolve 后必须以此开头）
+_ALLOWED_BASE_DIRS = (
+    _UPLOAD_DIR.resolve(),
+)
+
+
+def _validate_path_safety(path: Path) -> Path:
+    resolved = path.resolve()
+    if not any(resolved == base or base in resolved.parents for base in _ALLOWED_BASE_DIRS):
+        raise HTTPException(
+            status_code=400,
+            detail=f"文件路径不在允许的访问范围内",
+        )
+    return resolved
+
 def _sse_event(stage: str, **kwargs) -> str:
     data = {"stage": stage, **kwargs}
     return f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+def _resolve_input(
+    file_id: str | None,
+    file_path: str | None,
+    url: str | None,
+) -> tuple[str, Path | None]:
+    meeting_id = str(uuid.uuid4())[:12]
+
+    if file_id:
+        files = list(_UPLOAD_DIR.glob(f"{file_id}.*"))
+        if not files:
+            raise HTTPException(status_code=404, detail="未找到上传的文件")
+        actual_path = files[0]
+    elif file_path:
+        actual_path = _validate_path_safety(Path(file_path))
+        if not actual_path.exists():
+            raise HTTPException(status_code=400, detail="本地文件路径不存在")
+    elif url:
+        actual_path = None
+    else:
+        raise HTTPException(status_code=400, detail="必须提供 file_id, file_path 或 url 中的一个")
+
+    return meeting_id, actual_path
 
 @router.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
@@ -53,35 +91,19 @@ async def process_recording_endpoint(
     file_path: str = Form(None),
     file_id: str = Form(None),
     url: str = Form(None),
-    template: str = Form("meeting_minutes"),
     context: str = Form(None),
     num_speakers: int = Form(None),
     denoise_level: int = Form(1),
     extract_frames: bool = Form(True),
 ):
     """一键离线处理接口 (非流式)"""
-    meeting_id = str(uuid.uuid4())[:12]
-    
-    if file_id:
-        files = list(_UPLOAD_DIR.glob(f"{file_id}.*"))
-        if not files:
-            raise HTTPException(status_code=404, detail="未找到上传的文件")
-        actual_path: Path | None = files[0]
-    elif file_path:
-        actual_path = Path(file_path)
-        if not actual_path.exists():
-            raise HTTPException(status_code=400, detail="本地文件路径不存在")
-    elif url:
-        actual_path = None
-    else:
-        raise HTTPException(status_code=400, detail="必须提供 file_id, file_path 或 url 中的一个")
+    meeting_id, actual_path = _resolve_input(file_id, file_path, url)
 
     try:
         result = await run_offline_pipeline(
             input_path=actual_path,
             url=url,
             meeting_id=meeting_id,
-            template=template,
             context=context,
             num_speakers=num_speakers,
             denoise_level=denoise_level,
@@ -97,28 +119,13 @@ async def process_recording_stream(
     file_path: str = Form(None),
     file_id: str = Form(None),
     url: str = Form(None),
-    template: str = Form("meeting_minutes"),
     context: str = Form(None),
     num_speakers: int = Form(None),
     denoise_level: int = Form(1),
     extract_frames: bool = Form(True),
 ):
     """基于 Server-Sent Events (SSE) 的音视频流式处理接口"""
-    meeting_id = str(uuid.uuid4())[:12]
-    
-    if file_id:
-        files = list(_UPLOAD_DIR.glob(f"{file_id}.*"))
-        if not files:
-            raise HTTPException(status_code=404, detail="未找到上传的文件")
-        actual_path: Path | None = files[0]
-    elif file_path:
-        actual_path = Path(file_path)
-        if not actual_path.exists():
-            raise HTTPException(status_code=400, detail="本地文件路径不存在")
-    elif url:
-        actual_path = None
-    else:
-        raise HTTPException(status_code=400, detail="必须提供 file_id, file_path 或 url 中的一个")
+    meeting_id, actual_path = _resolve_input(file_id, file_path, url)
 
     async def generate() -> Generator[str, None, None]:
         try:
@@ -134,7 +141,6 @@ async def process_recording_stream(
                         input_path=actual_path,
                         url=url,
                         meeting_id=meeting_id,
-                        template=template,
                         context=context,
                         num_speakers=num_speakers,
                         denoise_level=denoise_level,
@@ -165,17 +171,3 @@ async def process_recording_stream(
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
-
-@router.get("/scenes")
-async def list_scenes():
-    """获取系统支持的提示词模板和应用场景列表"""
-    return [
-        {"name": "meeting", "display": "会议", "description": "会议纪要、议题、决议、行动项"},
-        {"name": "lecture", "display": "课堂", "description": "知识点、公式、习题、学习建议"},
-        {"name": "interview", "display": "访谈", "description": "Q&A、观点、立场分析"},
-        {"name": "brainstorm", "display": "灵感", "description": "想法、思维导图、行动建议"},
-        {"name": "news", "display": "新闻", "description": "5W1H、引用、背景"},
-        {"name": "exam", "display": "考试", "description": "闪卡、模拟题、要点清单"},
-        {"name": "entertainment", "display": "娱乐", "description": "高光、金句、推荐指数"},
-        {"name": "custom", "display": "自定义", "description": "自由定义输出格式"},
-    ]

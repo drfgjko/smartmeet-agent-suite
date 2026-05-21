@@ -4,6 +4,8 @@
 from __future__ import annotations
 import os
 import time
+import json
+from pathlib import Path
 from typing import Any
 import httpx
 from loguru import logger
@@ -120,7 +122,6 @@ class FeishuClient:
         上传文件到飞书
         API 文档: https://open.feishu.cn/document/uAjLw4COyYjL3gDM/uMTNz4yN1MjLzUzM
         """
-        from pathlib import Path
         token = await self._get_tenant_token()
         if not token:
             logger.warning("Feishu token is not available, skipping upload")
@@ -165,7 +166,6 @@ class FeishuClient:
         通过 API 发送文件消息给指定接收者
         API 文档: https://open.feishu.cn/document/server-docs/im-v1/message/create
         """
-        import json
         token = await self._get_tenant_token()
         if not token:
             return False

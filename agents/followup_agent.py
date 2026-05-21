@@ -10,8 +10,7 @@ Follow-up Agent（跟进Agent）
 """
 
 from __future__ import annotations
-import asyncio
-from pathlib import Path
+
 from typing import Any
 from loguru import logger
 
@@ -23,15 +22,7 @@ from schemas import (
     FollowUpArtifacts,
 )
 from services import ReportComposer, ReportRenderer, MindMapService, ReportDelivery
-
-
-def _state_value(state: object, key: str, default):
-    if hasattr(state, key):
-        value = getattr(state, key)
-        return default if value is None else value
-    if isinstance(state, dict):
-        return state.get(key, default)
-    return default
+from ._utils import _state_value
 
 
 class FollowUpAgent:
@@ -50,6 +41,10 @@ class FollowUpAgent:
         self.feishu = feishu_client
         self.jira = jira_client
         self.llm = llm_client
+        self._composer = ReportComposer(llm_client=self.llm)
+        self._renderer = ReportRenderer()
+        self._mindmap_service = MindMapService(llm_client=self.llm)
+        self._delivery = ReportDelivery(feishu_client=self.feishu, jira_client=self.jira)
 
     @staticmethod
     def _adapt_upstream(state: object) -> tuple[SummaryOutput, ActionOutput, InsightOutput]:
@@ -72,44 +67,61 @@ class FollowUpAgent:
         summary, actions, insights = self._adapt_upstream(state)
 
         result = FollowUpOutput(meeting_id=meeting_id)
+        errors: list[str] = _state_value(state, "errors", [])
+        step_failures: list[str] = []
+
+        # 1. 报告内容生成（核心步骤，失败则终止）
         try:
-            # 1. 报告内容生成
-            composer = ReportComposer(llm_client=self.llm)
-            final_report_md, kf_objects = await composer.compose_report(
+            final_report_md, kf_objects = await self._composer.compose_report(
                 meeting_id=meeting_id,
                 summary=summary,
                 actions=actions,
                 insights=insights,
                 keyframes=_state_value(state, "keyframes", [])
             )
+        except Exception as e:
+            logger.exception(f"[FollowUpAgent] compose_report failed: {e}")
+            errors.append(f"FollowUpAgent.compose_report: {str(e)}")
+            return {"followup": result, "errors": errors, "status": "ERROR"}
 
-            # 2. 报告编译与渲染
-            renderer = ReportRenderer()
-            md_path, pdf_path, html_path, pdf_generated = await renderer.render_report(
+        # 2. 报告编译与渲染（非核心，失败则跳过）
+        md_path = pdf_path = html_path = None
+        pdf_generated = False
+        try:
+            md_path, pdf_path, html_path, pdf_generated = await self._renderer.render_report(
                 meeting_id=meeting_id,
                 final_report_md=final_report_md,
                 kf_objects=kf_objects
             )
+        except Exception as e:
+            logger.warning(f"[FollowUpAgent] render_report failed, skipping: {e}")
+            errors.append(f"FollowUpAgent.render_report: {str(e)}")
+            step_failures.append("render")
 
-            # 3. 思维导图生成
-            mindmap_service = MindMapService(llm_client=self.llm)
-            mindmap_path, mindmap_generated = await mindmap_service.generate_and_save_mindmap(
+        # 3. 思维导图生成（非核心，失败则跳过）
+        mindmap_path = None
+        mindmap_generated = False
+        try:
+            mindmap_path, mindmap_generated = await self._mindmap_service.generate_and_save_mindmap(
                 meeting_id=meeting_id,
                 final_report_md=final_report_md
             )
+        except Exception as e:
+            logger.warning(f"[FollowUpAgent] generate_mindmap failed, skipping: {e}")
+            errors.append(f"FollowUpAgent.generate_mindmap: {str(e)}")
+            step_failures.append("mindmap")
 
-            # 保存资产路径至结构化字段中
-            result.artifacts = FollowUpArtifacts(
-                markdown_path=str(md_path) if md_path else None,
-                pdf_path=str(pdf_path) if pdf_path else None,
-                html_path=str(html_path) if html_path else None,
-                mindmap_path=str(mindmap_path) if mindmap_generated else None
-            )
+        # 保存资产路径至结构化字段中
+        result.artifacts = FollowUpArtifacts(
+            markdown_path=str(md_path) if md_path else None,
+            pdf_path=str(pdf_path) if pdf_path else None,
+            html_path=str(html_path) if html_path else None,
+            mindmap_path=str(mindmap_path) if mindmap_generated else None
+        )
 
-            # 4. 外部分发与渠道挂载
-            delivery = ReportDelivery(feishu_client=self.feishu, jira_client=self.jira)
-            
-            delivery_results = await delivery.deliver_report(
+        # 4. 外部分发与渠道挂载（非核心，失败则跳过）
+        try:
+            delivery_results = await self._delivery.deliver_report(
                 meeting_id=meeting_id,
                 summary=summary,
                 actions=actions,
@@ -120,15 +132,12 @@ class FollowUpAgent:
                 mindmap_generated=mindmap_generated,
             )
             result.delivery_results = delivery_results
-
-            logger.info(f"[FollowUpAgent] Follow-up complete")
-            return {"followup": result, "status": "COMPLETED"}
-
         except Exception as e:
-            logger.exception(f"[FollowUpAgent] Error: {e}")
-            return {
-                "errors": _state_value(state, "errors", []) + [f"FollowUpAgent: {str(e)}"],
-                "followup": result,
-                "status": "COMPLETED",
-            }
+            logger.warning(f"[FollowUpAgent] deliver_report failed, skipping: {e}")
+            errors.append(f"FollowUpAgent.deliver_report: {str(e)}")
+            step_failures.append("delivery")
+
+        status = "COMPLETED" if not step_failures else "PARTIAL"
+        logger.info(f"[FollowUpAgent] Follow-up {status}, failed steps: {step_failures or 'none'}")
+        return {"followup": result, "errors": errors, "status": status}
 
