@@ -76,11 +76,29 @@ class InsightOutput(BaseModel):
 
 # ─── FollowUpAgent 输出契约 ──────────────────────────────────────
 
+class ReportAsset(BaseModel):
+    asset_type: str = ""
+    path: str = ""
+    generated: bool = False
+
+
+class DeliveryResult(BaseModel):
+    channel: str = ""
+    success: bool = False
+    targets: list[str] = Field(default_factory=list)
+    artifacts: list[str] = Field(default_factory=list)
+    error: str | None = None
+
+
+class FollowUpArtifacts(BaseModel):
+    markdown_path: str | None = None
+    pdf_path: str | None = None
+    html_path: str | None = None
+    mindmap_path: str | None = None
+
+
 class FollowUpOutput(BaseModel):
     meeting_id: str = ""
-    summary_sent: bool = False
-    recipients: list[str] = Field(default_factory=list)
-    jira_issues_created: list[str] = Field(default_factory=list)
-    feishu_tasks_created: list[str] = Field(default_factory=list)
-    reminders_scheduled: int = 0
-    report_url: str = ""
+    artifacts: FollowUpArtifacts = Field(default_factory=FollowUpArtifacts)
+    delivery_results: list[DeliveryResult] = Field(default_factory=list)
+

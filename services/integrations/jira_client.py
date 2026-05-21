@@ -76,6 +76,28 @@ class JiraClient:
         client.add_comment(issue_key, comment)
         logger.info(f"Added comment to {issue_key}")
 
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))
+    def add_attachment(self, issue_key: str, file_path: str | Path, filename: str | None = None) -> bool:
+        """
+        上传文件作为 Jira Issue 的附件
+        """
+        from pathlib import Path
+        if not self._enabled:
+            logger.warning("Jira integration not configured, skipping add_attachment")
+            return False
+        client = self._get_client()
+        try:
+            path = Path(file_path)
+            if not path.exists():
+                logger.error(f"Attachment file not found: {file_path}")
+                return False
+            client.add_attachment(issue=issue_key, attachment=str(path.resolve()), filename=filename or path.name)
+            logger.info(f"Successfully uploaded attachment {path.name} to Jira issue {issue_key}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to upload attachment to Jira issue {issue_key}: {e}")
+            return False
+
     USER_MAPPING: dict[str, str] = {}
 
     def resolve_user(self, display_name: str) -> str | None:

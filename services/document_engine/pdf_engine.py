@@ -256,7 +256,7 @@ class LaTeXNoteBuilder:
                     tex_lines.append("\\begin{figure}[H]")
                     tex_lines.append("\\centering")
                     tex_lines.append(
-                        f"\\includegraphics[width=0.9\\textwidth]{{{fr.path.resolve()}}}"
+                        f"\\includegraphics[width=0.9\\textwidth]{{{fr.path.resolve().as_posix()}}}"
                     )
                     tex_lines.append(
                         f"\\caption{{{_tex_escape(cap)} \\protect\\footnotemark}}"

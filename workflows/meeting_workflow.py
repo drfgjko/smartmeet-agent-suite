@@ -18,14 +18,17 @@ from schemas import MeetingGraphState
 from services.integrations.llm_client import create_llm_client
 
 def build_meeting_graph(llm_client=None, jira_client=None, feishu_client=None) -> StateGraph:
+    from services.integrations.jira_client import JiraClient
+    from services.integrations.feishu_client import FeishuClient
+
     llm = llm_client or create_llm_client()
-    jira = jira_client
-    feishu = feishu_client
+    jira = jira_client or JiraClient()
+    feishu = feishu_client or FeishuClient()
     
     summary_agent = SummaryAgent(llm)
     action_agent = ActionAgent(llm, jira, feishu)
     insight_agent = InsightAgent(llm)
-    followup_agent = FollowUpAgent(feishu)
+    followup_agent = FollowUpAgent(feishu_client=feishu, jira_client=jira, llm_client=llm)
 
     graph = StateGraph(MeetingGraphState)
 
@@ -47,20 +50,45 @@ def build_meeting_graph(llm_client=None, jira_client=None, feishu_client=None) -
     logger.info("Meeting graph built successfully")
     return graph
 
-def compile_meeting_graph(**kwargs) -> Any:
-    graph = build_meeting_graph(**kwargs)
+from services.media_engine import DiarizationResult, ExtractedFrame
+
+def compile_meeting_graph(
+    llm_client: Any = None,
+    jira_client: Any = None,
+    feishu_client: Any = None,
+) -> Any:
+    graph = build_meeting_graph(
+        llm_client=llm_client,
+        jira_client=jira_client,
+        feishu_client=feishu_client,
+    )
     compiled = graph.compile()
     logger.info("Meeting graph compiled successfully")
     return compiled
 
-async def run_meeting_pipeline(meeting_id: str, transcript_text: str = "", transcript: Any = None, **kwargs) -> dict:
+async def run_meeting_pipeline(
+    meeting_id: str,
+    transcript_text: str = "",
+    transcript: DiarizationResult | None = None,
+    keyframes: list[ExtractedFrame] | None = None,
+    llm_client: Any = None,
+    jira_client: Any = None,
+    feishu_client: Any = None,
+    **kwargs: Any,
+) -> dict:
     logger.info(f"Starting meeting pipeline: {meeting_id}")
+    
     initial_state = MeetingGraphState(
         meeting_id=meeting_id,
         transcript_text=transcript_text,
         transcript=transcript,
+        keyframes=keyframes or [],
     )
-    compiled_graph = compile_meeting_graph(**kwargs)
+    compiled_graph = compile_meeting_graph(
+        llm_client=llm_client,
+        jira_client=jira_client,
+        feishu_client=feishu_client,
+    )
     final_state = await compiled_graph.ainvoke(initial_state)
     errors = final_state.get("errors", [])
     if errors:

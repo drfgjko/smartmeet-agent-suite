@@ -22,7 +22,8 @@ from schemas import (
     ActionOutput,
     ActionItem,
     InsightOutput,
-    FollowUpOutput
+    FollowUpOutput,
+    FollowUpArtifacts,
 )
 
 client = TestClient(app)
@@ -61,7 +62,7 @@ def test_process_endpoint(mock_run_offline_pipeline):
         "summary": {"title": "测试会议摘要"},
         "actions": {"action_items": [{"assignee": "张三", "task": "完成测试"}]},
         "insights": {"overall_sentiment": "positive"},
-        "followup": {"report_url": "/reports/test-mtg-123.md"},
+        "followup": {"artifacts": {"markdown_path": "/reports/test-mtg-123.md"}},
     }
 
     with patch("api.routes.recording._UPLOAD_DIR") as mock_upload_dir:
@@ -141,7 +142,10 @@ def test_websocket_demo_mode(mock_run_pipeline):
         summary=SummaryOutput(title="WebSocket演示摘要"),
         actions=ActionOutput(meeting_id="ws-demo-id", action_items=[ActionItem(assignee="PM", task="跟进原型")]),
         insights=InsightOutput(meeting_id="ws-demo-id", overall_sentiment="neutral"),
-        followup=FollowUpOutput(meeting_id="ws-demo-id", report_url="/reports/ws-demo-id.md")
+        followup=FollowUpOutput(
+            meeting_id="ws-demo-id",
+            artifacts=FollowUpArtifacts(markdown_path="/reports/ws-demo-id.md")
+        )
     )
     
     with client.websocket_connect("/ws/meeting/ws-demo-id") as websocket:

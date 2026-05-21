@@ -29,10 +29,10 @@
   - [x] 5.3: 迁移 `noteking-pro` 的音视频在线链接抓取（支持 Bilibili/YouTube）与转录提取逻辑。
   - [x] 5.4: 在 [api/](file:///d:/Workspace/agent-project/smartmeet-agent-suite/api) 层实现统一的音视频预处理流水线（降噪 -> ASR转录 -> 说话人分割 -> 帧提取），并与 [workflows/meeting_workflow.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/workflows/meeting_workflow.py) 中的 LangGraph 状态机无缝对接。
   - [x] 5.5: 合并实时 WebSocket 接口 `/ws/meeting/{meeting_id}`，确保能够实时录音并自动流式调用转录与多 Agent 状态机。
-- [ ] TODO 6: 改造资产生成与分发节点。升级原有的 Follow-up Agent，使其能够调用生成引擎打包 PDF 和思维导图附件，并通过飞书/Jira完成执行流的硬闭环。
-  - [ ] 6.1: 改造 [agents/followup_agent.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/agents/followup_agent.py)，在 `process` 方法中引入 [services/document_engine/pdf_engine.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/document_engine/pdf_engine.py) 与 [services/document_engine/mindmap_engine.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/document_engine/mindmap_engine.py)。
-  - [ ] 6.2: 集成 LaTeX PDF 讲义渲染与 Mermaid 思维导图自动生成，渲染出精美的最终资产并保存到输出目录。
-  - [ ] 6.3: 升级 Feishu 与 Jira 客户端，支持将生成的 PDF 报告与思维导图文件以附件形式上传到飞书群（通过机器人/Webhook）与 Jira 对应 Issue（待办事项）中。
+- [x] TODO 6: 改造资产生成与分发节点。升级原有的 Follow-up Agent，使其能够调用生成引擎打包 PDF 和思维导图附件，并通过飞书/Jira完成执行流的硬闭环。
+  - [x] 6.1: 改造 [agents/followup_agent.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/agents/followup_agent.py)，在 `process` 方法中引入 [services/document_engine/pdf_engine.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/document_engine/pdf_engine.py) 与 [services/document_engine/mindmap_engine.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/document_engine/mindmap_engine.py)。
+  - [x] 6.2: 集成 LaTeX PDF 讲义渲染与 Mermaid 思维导图自动生成，渲染出精美的最终资产并保存到输出目录。在 `FollowUpAgent` 中加入轻量级排版 LLM 步骤，动态且智能化地将视频关键帧（`{IMAGE:N}`）插入到已合并 of 会议纪要对应段落中。
+  - [x] 6.3: 升级 Feishu 与 Jira 客户端，添加文件上传与发送附件 API。支持将生成的 PDF 报告与思维导图文件以附件形式上传到飞书群（通过应用机器人）与 Jira 对应 Issue（待办事项）中，并提供免商业账号的个人自建开发者沙箱配置与测试指南。
 - [ ] TODO 6.5: 多端网关适配（Omni-channel Entry）。保留并改造原有的 `web/` (前端控制台)、`cli/` (命令行)、`mcp/` (大模型上下文协议) 等“壳”，将其全部对接到统一的 API 层，体现架构的“多端解耦”能力。
   - [ ] 6.5.1: 迁移并适配 [web/](file:///d:/Workspace/agent-project/smartmeet-agent-suite/web) 前端控制台页面，将原有的 API 端点修改指向缝合后的统一 FastAPI 服务端口（8000），解决跨域与上传逻辑适配。
   - [ ] 6.5.2: 迁移并适配 [cli/](file:///d:/Workspace/agent-project/smartmeet-agent-suite/cli) 命令行客户端，确保能通过 CLI 直接提交离线任务并接收报告。

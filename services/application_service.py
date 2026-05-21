@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Application service for recording processing flows.
+用于会议录制音频/视频处理工作流的后台应用服务。
 """
 
 from __future__ import annotations
@@ -213,8 +213,7 @@ async def run_offline_pipeline(
         meeting_id=meeting_id,
         transcript_text=diar_result.transcript_with_speakers,
         transcript=diar_result,
-        template=template,
-        context=context,
+        keyframes=frames_result,
     )
 
     outputs = _serialize_agent_outputs(final_state)

@@ -12,6 +12,9 @@ from .meeting_schemas import (
     SpeakerStat,
     InsightOutput,
     FollowUpOutput,
+    ReportAsset,
+    DeliveryResult,
+    FollowUpArtifacts,
 )
 from .meeting_state import MeetingGraphState
 
@@ -24,5 +27,8 @@ __all__ = [
     "SpeakerStat",
     "InsightOutput",
     "FollowUpOutput",
+    "ReportAsset",
+    "DeliveryResult",
+    "FollowUpArtifacts",
     "MeetingGraphState",
 ]

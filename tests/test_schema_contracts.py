@@ -130,21 +130,32 @@ class TestFollowUpOutputContract:
     def test_full_output_parses(self):
         data = {
             "meeting_id": "mtg-001",
-            "summary_sent": True,
-            "recipients": ["Alice", "Bob"],
-            "jira_issues_created": ["PROJ-123"],
-            "feishu_tasks_created": ["task-456"],
-            "reminders_scheduled": 2,
-            "report_url": "/reports/mtg-001.md",
+            "artifacts": {
+                "markdown_path": "/reports/mtg-001.md",
+                "pdf_path": "/reports/mtg-001.pdf",
+            },
+            "delivery_results": [
+                {
+                    "channel": "feishu",
+                    "success": True,
+                    "targets": ["Alice", "Bob"],
+                    "artifacts": ["key_123"],
+                }
+            ],
         }
         output = FollowUpOutput.model_validate(data)
-        assert output.summary_sent is True
-        assert output.reminders_scheduled == 2
+        assert output.artifacts.markdown_path == "/reports/mtg-001.md"
+        assert output.artifacts.pdf_path == "/reports/mtg-001.pdf"
+        assert output.artifacts.html_path is None
+        assert len(output.delivery_results) == 1
+        assert output.delivery_results[0].channel == "feishu"
+        assert output.delivery_results[0].success is True
 
     def test_empty_output_has_defaults(self):
         output = FollowUpOutput()
-        assert output.summary_sent is False
-        assert output.report_url == ""
+        assert output.artifacts.markdown_path is None
+        assert output.delivery_results == []
+
 
 
 class TestFollowUpAdaptUpstream:
@@ -287,3 +298,24 @@ class TestMeetingGraphStateContract:
         assert isinstance(state.actions, ActionOutput)
         assert isinstance(state.insights, InsightOutput)
         assert isinstance(state.followup, FollowUpOutput)
+
+    def test_accepts_media_engine_types(self):
+        from services.media_engine import DiarizationResult, DiarizedSegment, ExtractedFrame
+        from pathlib import Path
+
+        transcript = DiarizationResult(
+            segments=[DiarizedSegment(start=0.0, end=1.0, text="hello", speaker="Speaker 1")],
+            num_speakers=1,
+            speakers=["Speaker 1"],
+            language="zh",
+        )
+        keyframes = [ExtractedFrame(path=Path("dummy.jpg"), timestamp=1.5)]
+
+        state = MeetingGraphState(
+            transcript=transcript,
+            keyframes=keyframes,
+        )
+        assert state.transcript is not None
+        assert state.transcript.num_speakers == 1
+        assert len(state.keyframes) == 1
+        assert state.keyframes[0].timestamp == 1.5
