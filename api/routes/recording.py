@@ -15,12 +15,14 @@ import uuid
 from pathlib import Path
 from typing import Generator, Any
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile, BackgroundTasks
 from fastapi.responses import StreamingResponse
 from loguru import logger
 
 from services.application_service import run_offline_pipeline
 from schemas import JobConfig
+from schemas.task_schema import TaskCreateResponse
+from services.task_queue import task_queue
 
 router = APIRouter(prefix="/api/v1/recording", tags=["recording"])
 
@@ -124,6 +126,60 @@ async def process_recording_endpoint(
     except Exception as e:
         logger.exception("Error during process_recording_endpoint")
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/process/async", response_model=TaskCreateResponse)
+async def process_recording_async(
+    background_tasks: BackgroundTasks,
+    file_path: str = Form(None),
+    file_id: str = Form(None),
+    url: str = Form(None),
+    context: str = Form(None),
+    num_speakers: int = Form(None),
+    denoise_level: int = Form(1),
+    extract_frames: bool = Form(True),
+    job_config: str = Form(None, description="JobConfig JSON 字符串，控制流程开关"),
+):
+    """一键离线处理接口 (纯异步流)，提交任务后立即返回 Task ID，由后台执行"""
+    meeting_id, actual_path = _resolve_input(file_id, file_path, url)
+
+    # 解析 JobConfig
+    parsed_config = JobConfig()
+    if job_config:
+        try:
+            parsed_config = JobConfig.model_validate_json(job_config)
+        except Exception as e:
+            logger.warning(f"job_config 解析失败，使用默认值: {e}")
+
+    task_id = str(uuid.uuid4())
+    
+    # 1. 在数据库中创建 Pending 任务记录
+    task_queue.task_service.create_task(task_id, meeting_id=meeting_id)
+    
+    # 2. 包装真正的耗时协程
+    coro = run_offline_pipeline(
+        input_path=actual_path,
+        url=url,
+        meeting_id=meeting_id,
+        context=context,
+        num_speakers=num_speakers,
+        denoise_level=denoise_level,
+        extract_frames=extract_frames,
+        job_config=parsed_config,
+    )
+    
+    # 3. 投递到后台执行
+    background_tasks.add_task(
+        task_queue.execute_task,
+        task_id=task_id,
+        coro=coro,
+        webhook_urls=parsed_config.webhook_urls
+    )
+    
+    return TaskCreateResponse(
+        task_id=task_id,
+        status="pending",
+        message="Task submitted successfully. Please poll /api/v1/tasks/{task_id} for status."
+    )
 
 @router.post("/process/stream")
 async def process_recording_stream(

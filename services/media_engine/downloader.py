@@ -162,11 +162,13 @@ def download_audio(
 def download_video(
     url: str,
     output_dir: Path,
-    quality: str = "best",
+    quality: str = "",
 ) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
-    cmd = _base_cmd(url) + [
-        "-f", quality,
+    cmd = _base_cmd(url)
+    if quality:
+        cmd += ["-f", quality]
+    cmd += [
         "-o", str(output_dir / "%(title)s.%(ext)s"),
         url,
     ]

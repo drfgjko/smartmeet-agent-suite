@@ -59,3 +59,5 @@ commit_msg.txt
 commit_msg_amend.txt
 CODE_REVIEW_MODULE_INDEPENDENCE.md
 ROADMAP.md
+*.db
+*.sqlite3
