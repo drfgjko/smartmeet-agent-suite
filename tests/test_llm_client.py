@@ -7,7 +7,7 @@ from __future__ import annotations
 import os
 import pytest
 from unittest import mock
-from services.integrations.llm_client import create_llm_client, clean_and_parse_json, UnifiedLLMClient
+from services.integrations import create_llm_client, clean_and_parse_json, UnifiedLLMClient
 
 def test_clean_and_parse_json():
     # 测试标准 JSON 解析

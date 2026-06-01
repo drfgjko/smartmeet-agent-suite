@@ -225,7 +225,8 @@ def _get_duration(video_path: Path) -> float:
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
     try:
         return float(result.stdout.strip())
-    except (ValueError, AttributeError):
+    except (ValueError, AttributeError) as e:
+        logger.warning(f"Failed to parse duration for {video_path}: {e}")
         return 0.0
 
 def align_frames_to_subtitles(

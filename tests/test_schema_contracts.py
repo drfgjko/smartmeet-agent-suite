@@ -164,11 +164,11 @@ class TestFollowUpAdaptUpstream:
     def test_adapts_valid_upstream(self):
         from agents.followup_agent import FollowUpAgent
 
-        state = {
-            "summary": {"title": "周会", "participants": ["Alice"]},
-            "actions": {"meeting_id": "mtg-001", "action_items": []},
-            "insights": {"meeting_id": "mtg-001", "overall_sentiment": "positive"},
-        }
+        state = MeetingGraphState(
+            summary={"title": "周会", "participants": ["Alice"]},
+            actions={"meeting_id": "mtg-001", "action_items": []},
+            insights={"meeting_id": "mtg-001", "overall_sentiment": "positive"},
+        )
         summary, actions, insights = FollowUpAgent._adapt_upstream(state)
         assert isinstance(summary, SummaryOutput)
         assert summary.title == "周会"
@@ -179,20 +179,11 @@ class TestFollowUpAdaptUpstream:
     def test_adapts_missing_upstream_gracefully(self):
         from agents.followup_agent import FollowUpAgent
 
-        state = {}
+        state = MeetingGraphState()
         summary, actions, insights = FollowUpAgent._adapt_upstream(state)
         assert summary.title == "会议纪要"
         assert actions.action_items == []
         assert insights.overall_sentiment == "neutral"
-
-    def test_adapts_none_upstream_gracefully(self):
-        from agents.followup_agent import FollowUpAgent
-
-        state = {"summary": None, "actions": None, "insights": None}
-        summary, actions, insights = FollowUpAgent._adapt_upstream(state)
-        assert isinstance(summary, SummaryOutput)
-        assert isinstance(actions, ActionOutput)
-        assert isinstance(insights, InsightOutput)
 
     def test_adapts_typed_state(self):
         from agents.followup_agent import FollowUpAgent
@@ -222,7 +213,8 @@ class TestCrossAgentContractCompatibility:
             "decisions": ["上线"],
             "next_steps": ["编写文档"],
         }
-        summary, _, _ = FollowUpAgent._adapt_upstream({"summary": summary_data})
+        state = MeetingGraphState(summary=summary_data)
+        summary, _, _ = FollowUpAgent._adapt_upstream(state)
         assert summary.title == "产品评审会"
         assert len(summary.participants) == 3
 
@@ -236,7 +228,8 @@ class TestCrossAgentContractCompatibility:
             ],
             "sync_status": {"jira": "enabled", "feishu": "disabled"},
         }
-        _, actions, _ = FollowUpAgent._adapt_upstream({"actions": action_data})
+        state = MeetingGraphState(actions=action_data)
+        _, actions, _ = FollowUpAgent._adapt_upstream(state)
         assert len(actions.action_items) == 1
         assert actions.sync_status.jira == "enabled"
 
@@ -261,7 +254,8 @@ class TestCrossAgentContractCompatibility:
             "highlights": ["风险已识别"],
             "suggestions": ["缩短无效讨论"],
         }
-        _, _, insights = FollowUpAgent._adapt_upstream({"insights": insight_data})
+        state = MeetingGraphState(insights=insight_data)
+        _, _, insights = FollowUpAgent._adapt_upstream(state)
         assert insights.meeting_id == "mtg-001"
         assert insights.speaker_stats[0].speaker == "QA"
 

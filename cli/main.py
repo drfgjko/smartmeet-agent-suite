@@ -6,7 +6,7 @@ import json
 import shutil
 from pathlib import Path
 import click
-import requests
+import httpx
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
@@ -17,7 +17,7 @@ API_BASE = os.environ.get("SMARTMEET_API", "http://127.0.0.1:8000")
 
 @click.group(invoke_without_command=True)
 @click.pass_context
-@click.version_option(version="2.0.0", prog_name="smartmeet")
+@click.version_option(version="1.0.0", prog_name="smartmeet")
 def main(ctx):
     if ctx.invoked_subcommand is None:
         click.echo(ctx.get_help())
@@ -46,7 +46,7 @@ def process(files, context, speakers, denoise, output):
         try:
             upload_url = f"{API_BASE}/api/v1/recording/upload"
             with open(target_file, "rb") as f:
-                r = requests.post(upload_url, files={"file": (target_file.name, f, "application/octet-stream")})
+                r = httpx.post(upload_url, files={"file": (target_file.name, f, "application/octet-stream")})
             if r.status_code != 200:
                 raise Exception(f"上传失败: HTTP {r.status_code} - {r.text}")
             file_id = r.json().get("file_id")
@@ -82,6 +82,8 @@ def run(url, context, output):
     )
 
 def _run_process_stream(file_id=None, url=None, context=None, speakers=None, denoise=1, output=None):
+    import time
+    start_time = time.time()
     payload = {
         "denoise_level": denoise,
     }
@@ -99,43 +101,57 @@ def _run_process_stream(file_id=None, url=None, context=None, speakers=None, den
     with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"), console=console) as progress:
         task = progress.add_task("正在连接流水线...", total=None)
         try:
-            resp = requests.post(process_url, data=payload, stream=True)
-            if resp.status_code != 200:
-                raise Exception(f"流水线启动失败: HTTP {resp.status_code} - {resp.text}")
+            with httpx.stream("POST", process_url, data=payload, timeout=None) as resp:
+                if resp.status_code != 200:
+                    resp.read() # 读取错误信息
+                    raise Exception(f"流水线启动失败: HTTP {resp.status_code} - {resp.text}")
 
-            meeting_id = None
-            content = None
-            output_files = {}
+                meeting_id = None
+                content = None
+                output_files = {}
 
-            for line in resp.iter_lines():
-                if not line:
-                    continue
-                decoded = line.decode("utf-8").strip()
-                if decoded.startswith("data: "):
-                    ev = json.loads(decoded[6:])
-                    stage = ev.get("stage")
-                    msg = ev.get("message", "处理中...")
+                for line in resp.iter_lines():
+                    if not line:
+                        continue
+                    decoded = line.strip()
+                    if decoded.startswith("data: "):
+                        ev = json.loads(decoded[6:])
+                        stage = ev.get("stage")
+                        msg = ev.get("message", "处理中...")
 
-                    if stage == "done":
-                        meeting_id = ev.get("meeting_id")
-                        content = ev.get("content")
-                        output_files = ev.get("output_files", {})
-                        progress.update(task, description="完成!")
-                    elif stage == "error":
-                        raise Exception(ev.get("message", "未知错误"))
-                    else:
-                        progress.update(task, description=f"[{stage}] {msg}")
+                        if stage == "done":
+                            meeting_id = ev.get("meeting_id")
+                            content = ev.get("content")
+                            output_files = ev.get("output_files", {})
+                            errors = ev.get("errors", [])
+                            progress.update(task, description="完成!")
+                        elif stage == "error":
+                            raise Exception(ev.get("message", "未知错误"))
+                        else:
+                            progress.update(task, description=f"[{stage}] {msg}")
 
             if not content:
                 raise Exception("流水线完成但未返回任何内容")
+
+            elapsed = time.time() - start_time
+            if elapsed >= 60:
+                time_str = f"{int(elapsed // 60)} 分 {int(elapsed % 60)} 秒"
+            else:
+                time_str = f"{elapsed:.1f} 秒"
 
             console.print()
             console.print(Panel(
                 f"[bold green]处理完成![/bold green]\n"
                 f"会议 ID: {meeting_id}\n"
-                f"生成报告长度: {len(content)} 字符。",
+                f"生成报告长度: {len(content)} 字符。\n"
+                f"总共用时: {time_str}",
                 title="结果摘要"
             ))
+
+            if errors:
+                console.print(Panel("\n".join(f"- {err}" for err in errors), title="[bold red]执行过程中出现非致命错误[/bold red]", border_style="red"))
+            elif "pdf" not in output_files or not output_files["pdf"]:
+                console.print(Panel("- 未生成 PDF 资产，可能是由于系统缺失依赖导致降级失败。请检查服务端日志。", title="[bold yellow]产出缺失警告[/bold yellow]", border_style="yellow"))
 
             if output:
                 out_path = Path(output)

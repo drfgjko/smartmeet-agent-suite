@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import os
 import json
+import platform
 import subprocess
 import tempfile
 from dataclasses import dataclass, field
@@ -43,25 +44,34 @@ class VideoMeta:
     def entry_count(self) -> int:
         return len(self.entries) if self.entries else 1
 
-BILIBILI_COOKIES_FILE = Path("/app/bilibili_cookies.txt")
+_BILIBILI_COOKIES_PATH = "/app/bilibili_cookies.txt"
+if platform.system() == "Windows":
+    _BILIBILI_COOKIES_PATH = str(Path(os.environ.get("LOCALAPPDATA", "")) / "smartmeet" / "bilibili_cookies.txt")
+BILIBILI_COOKIES_FILE = Path(_BILIBILI_COOKIES_PATH)
 
-def _base_cmd() -> list[str]:
-    cmd = ["yt-dlp", "--no-warnings"]
+def _base_cmd(url: str = "") -> list[str]:
+    cmd = ["yt-dlp", "--verbose", "--proxy", ""]
 
-    proxy = os.environ.get("NOTEKING_PROXY") or os.environ.get("HTTP_PROXY") or os.environ.get("SOCKS5_PROXY")
-    if proxy:
-        cmd += ["--proxy", proxy]
+    # 哔哩哔哩不需要代理，而且如果系统的本地代理服务没开或者拦截了，会导致 [WinError 10061] 连接被拒
+    is_bilibili = "bilibili.com" in url or "b23.tv" in url
+
+    if not is_bilibili:
+        proxy = os.environ.get("NOTEKING_PROXY") or os.environ.get("HTTP_PROXY") or os.environ.get("SOCKS5_PROXY")
+        if proxy:
+            cmd += ["--proxy", proxy]
 
     if BILIBILI_COOKIES_FILE.exists():
         cmd += ["--cookies", str(BILIBILI_COOKIES_FILE)]
     else:
         sessdata = os.environ.get("BILIBILI_SESSDATA", "")
-        if sessdata:
-            decoded = unquote(sessdata)
+        if sessdata and sessdata != "your_sessdata_here":
+            # 不要使用 unquote() 解码！B 站的 Cookie 包含逗号等特殊字符，
+            # 如果解码后放入 Cookie 文件，会导致 yt-dlp 发送非法的 HTTP Cookie 请求头（包含明文逗号），
+            # 这会触发 B 站 WAF 防火墙的拦截，直接导致 TCP 连接超时 (TimeoutError)！
             tmp = Path(tempfile.mktemp(suffix="_bili_cookies.txt"))
             tmp.write_text(
                 f"# Netscape HTTP Cookie File\n"
-                f".bilibili.com\tTRUE\t/\tTRUE\t9999999999\tSESSDATA\t{decoded}\n",
+                f".bilibili.com\tTRUE\t/\tTRUE\t2147483647\tSESSDATA\t{sessdata}\n",
                 encoding="utf-8"
             )
             cmd += ["--cookies", str(tmp)]
@@ -77,7 +87,8 @@ def get_video_info(url: str) -> VideoMeta:
     ]
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
     if result.returncode != 0:
-        raise RuntimeError(f"yt-dlp info failed: {result.stderr[:500]}")
+        err_msg = (result.stderr or result.stdout or '')[-1000:]
+        raise RuntimeError(f"yt-dlp info failed: {err_msg}")
 
     lines = [l for l in result.stdout.strip().split("\n") if l.strip()]
     if not lines:
@@ -131,16 +142,17 @@ def download_audio(
 ) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / "audio.wav"
-    cmd = _base_cmd() + [
+    cmd = _base_cmd(url) + [
         "-x",
         "--audio-format", "wav",
         "--audio-quality", "0",
         "-o", str(output_path),
         url,
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+    result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=600)
     if result.returncode != 0:
-        raise RuntimeError(f"Audio download failed: {result.stderr[:500]}")
+        err_msg = f"RETURN={result.returncode} | STDERR={(result.stderr or '').strip()} | STDOUT={(result.stdout or '')[-1000:].strip()}"
+        raise RuntimeError(f"Audio download failed: {err_msg}")
 
     wavs = list(output_dir.glob("*.wav"))
     if wavs:
@@ -153,14 +165,15 @@ def download_video(
     quality: str = "best",
 ) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
-    cmd = _base_cmd() + [
+    cmd = _base_cmd(url) + [
         "-f", quality,
         "-o", str(output_dir / "%(title)s.%(ext)s"),
         url,
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=1800)
+    result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=1800)
     if result.returncode != 0:
-        raise RuntimeError(f"Video download failed: {result.stderr[:500]}")
+        err_msg = f"RETURN={result.returncode} | STDERR={(result.stderr or '').strip()} | STDOUT={(result.stdout or '')[-1000:].strip()}"
+        raise RuntimeError(f"Video download failed: {err_msg}")
 
     for ext in ("mp4", "mkv", "webm", "flv"):
         vids = list(output_dir.glob(f"*.{ext}"))

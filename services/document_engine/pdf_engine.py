@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Any
 from loguru import logger
 
+from services import _find_project_root
 from services.media_engine import ExtractedFrame, extract_keyframes, align_frames_to_subtitles, download_video
 
 @dataclass
@@ -46,7 +47,7 @@ class CollectionResult:
 
 class HTMLNoteBuilder:
     def __init__(self):
-        css_path = Path(__file__).resolve().parents[2] / "assets" / "style.css"
+        css_path = _find_project_root() / "assets" / "style.css"
         if not css_path.exists():
             raise FileNotFoundError(f"Required CSS template not found at {css_path}")
         css = css_path.read_text(encoding="utf-8")
@@ -93,6 +94,11 @@ class HTMLNoteBuilder:
             body, flags=re.DOTALL,
         )
 
+        import markdown
+        # 强制在最上方插入目录锚点，toc扩展会自动将其替换为带有链接的目录树
+        body = "[TOC]\n\n" + body
+        body = markdown.markdown(body, extensions=['fenced_code', 'tables', 'toc'])
+
         cover_html = ""
         if cover_path and cover_path.exists():
             cover_html = f'<img src="file://{cover_path.resolve()}" alt="cover">'
@@ -121,46 +127,57 @@ class HTMLNoteBuilder:
 
     @staticmethod
     def html_to_pdf(html_path: Path, pdf_path: Path) -> bool:
-        chrome = None
-        if platform.system() == "Windows":
-            paths = [
-                Path(os.environ.get("ProgramFiles", "C:\\Program Files")) / "Google" / "Chrome" / "Application" / "chrome.exe",
-                Path(os.environ.get("ProgramFiles(x86)", "C:\\Program Files (x86)")) / "Google" / "Chrome" / "Application" / "chrome.exe",
-                Path(os.environ.get("LocalAppData", "C:\\Users\\Default\\AppData\\Local")) / "Google" / "Chrome" / "Application" / "chrome.exe",
-                Path(os.environ.get("ProgramFiles", "C:\\Program Files")) / "Microsoft" / "Edge" / "Application" / "msedge.exe",
-            ]
-            for p in paths:
-                if p.exists():
-                    chrome = str(p)
-                    break
-
-        if not chrome:
-            chrome = (
-                shutil.which("chrome")
-                or shutil.which("chrome.exe")
-                or shutil.which("msedge")
-                or shutil.which("msedge.exe")
-                or shutil.which("google-chrome")
-                or shutil.which("chromium")
-            )
-
-        if not chrome:
-            logger.warning("No Headless Chrome or Edge found in system path. Skip PDF generation.")
-            return False
-
-        cmd = [
-            chrome, "--headless=new",
-            f"--print-to-pdf={pdf_path}",
-            "--print-to-pdf-no-header", "--no-sandbox", "--disable-gpu",
-            f"file://{html_path.resolve()}",
-        ]
         try:
-            subprocess.run(cmd, capture_output=True, timeout=60)
+            from weasyprint import HTML
+            from loguru import logger
+            logger.info(f"Using WeasyPrint to render native PDF to {pdf_path}")
+            
+            # 使用 WeasyPrint 直接解析带有完整 CSS 的 HTML 文件，原生生成带有书签和目录的 PDF
+            HTML(filename=str(html_path.resolve())).write_pdf(str(pdf_path.resolve()))
+            
+            return pdf_path.exists() and pdf_path.stat().st_size > 5000
         except Exception as e:
-            logger.error(f"Failed to run chrome headlessly: {e}")
-            return False
+            from loguru import logger
+            logger.warning(f"WeasyPrint failed ({e}). Falling back to zero-dependency Chrome Headless...")
+            
+            import shutil, subprocess, platform, os
+            chrome = None
+            if platform.system() == "Windows":
+                paths = [
+                    Path(os.environ.get("ProgramFiles", "C:\\Program Files")) / "Google" / "Chrome" / "Application" / "chrome.exe",
+                    Path(os.environ.get("ProgramFiles(x86)", "C:\\Program Files (x86)")) / "Google" / "Chrome" / "Application" / "chrome.exe",
+                    Path(os.environ.get("LocalAppData", "C:\\Users\\Default\\AppData\\Local")) / "Google" / "Chrome" / "Application" / "chrome.exe",
+                    Path(os.environ.get("ProgramFiles", "C:\\Program Files")) / "Microsoft" / "Edge" / "Application" / "msedge.exe",
+                ]
+                for p in paths:
+                    if p.exists():
+                        chrome = str(p)
+                        break
 
-        return pdf_path.exists() and pdf_path.stat().st_size > 5000
+            if not chrome:
+                chrome = (
+                    shutil.which("chrome") or shutil.which("chrome.exe") or 
+                    shutil.which("msedge") or shutil.which("msedge.exe") or 
+                    shutil.which("google-chrome") or shutil.which("chromium")
+                )
+
+            if not chrome:
+                logger.error("No WeasyPrint, and no Chrome/Edge found. PDF generation failed.")
+                return False
+
+            cmd = [
+                chrome, "--headless=new",
+                f"--print-to-pdf={pdf_path}",
+                "--print-to-pdf-no-header", "--no-sandbox", "--disable-gpu",
+                f"file://{html_path.resolve()}",
+            ]
+            try:
+                subprocess.run(cmd, capture_output=True, timeout=60)
+            except Exception as ce:
+                logger.error(f"Failed to run chrome headlessly: {ce}")
+                return False
+
+            return pdf_path.exists() and pdf_path.stat().st_size > 5000
 
 class LaTeXNoteBuilder:
     def build_tex(
@@ -347,7 +364,7 @@ class LaTeXNoteBuilder:
 
     @staticmethod
     def _default_template() -> str:
-        tex_path = Path(__file__).resolve().parents[2] / "assets" / "notes-template.tex"
+        tex_path = _find_project_root() / "assets" / "notes-template.tex"
         if not tex_path.exists():
             raise FileNotFoundError(f"Required LaTeX template not found at {tex_path}")
         return tex_path.read_text(encoding="utf-8")
@@ -355,12 +372,13 @@ class LaTeXNoteBuilder:
 class PDFPipeline:
     def __init__(
         self,
-        llm_client: Any = None,
+        llm_client: Any,
         max_tokens: int = 4000,
         concurrency: int = 3,
     ):
-        from services.integrations.llm_client import create_llm_client
-        self.llm = llm_client or create_llm_client()
+        if llm_client is None:
+            raise ValueError("PDFPipeline requires llm_client to be injected via constructor")
+        self.llm = llm_client
         self.max_tokens = max_tokens
         self.concurrency = concurrency
         self.html_builder = HTMLNoteBuilder()
@@ -577,7 +595,7 @@ CONTENT REQUIREMENTS:
     def _merge_html(
         self, episodes: list[EpisodeResult], title: str, output_dir: Path
     ) -> Path:
-        css_path = Path(__file__).resolve().parents[2] / "assets" / "style.css"
+        css_path = _find_project_root() / "assets" / "style.css"
         if not css_path.exists():
             raise FileNotFoundError(f"Required CSS template not found at {css_path}")
         css = css_path.read_text(encoding="utf-8")
@@ -620,6 +638,10 @@ CONTENT REQUIREMENTS:
                           r'<div class="knowledge-box">\1</div>', body, flags=re.DOTALL)
             body = re.sub(r"\{WARNING\}(.*?)\{/WARNING\}",
                           r'<div class="warning-box">\1</div>', body, flags=re.DOTALL)
+            
+            import markdown
+            body = markdown.markdown(body, extensions=['fenced_code', 'tables', 'toc'])
+
             parts.append(body)
             parts.append("<hr>")
 

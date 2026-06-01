@@ -85,8 +85,10 @@ class ReportAsset(BaseModel):
 class DeliveryResult(BaseModel):
     channel: str = ""
     success: bool = False
+    partial_success: bool = False
     targets: list[str] = Field(default_factory=list)
     artifacts: list[str] = Field(default_factory=list)
+    asset_errors: list[str] = Field(default_factory=list)
     error: str | None = None
 
 

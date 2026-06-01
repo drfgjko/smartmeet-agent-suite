@@ -8,6 +8,17 @@ Smartmeet Core Services
 - delivery: 会议资产多渠道分发服务
 """
 
+from pathlib import Path
+
+
+def _find_project_root() -> Path:
+    current = Path(__file__).resolve()
+    for parent in current.parents:
+        if (parent / "pyproject.toml").exists():
+            return parent
+    return current.parents[2]
+
+
 from .reporting import ReportComposer, ReportRenderer, MindMapService
 from .delivery import ReportDelivery
 
@@ -16,5 +27,6 @@ __all__ = [
     "ReportRenderer",
     "MindMapService",
     "ReportDelivery",
+    "_find_project_root",
 ]
 

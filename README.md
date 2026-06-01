@@ -32,8 +32,48 @@
    拿到上面那些数据后，系统会调用基于 LaTeX 的模板引擎，连同视频里的截图一起，渲染出一份非常专业的 PDF 讲义。
    最后，系统会把这个 PDF 作为附件，自动发飞书或者同步到 Jira。
 
+## 🚀 如何启动与使用？
+
+### 第一步：启动后端 API 服务
+你需要先在后台挂起我们的 FastAPI 引擎。打开终端并在项目根目录下运行：
+```bash
+python -m api.main
+```
+看到“服务已成功启动！”的提示后，把这个窗口最小化挂在后台即可。
+
+### 第二步：使用 CLI 客户端处理文件
+重新开一个终端窗口。这个强大的 CLI 可以帮你处理任何本地音视频，或是长长的一步到位的 B 站/YouTube 链接！
+
+- **处理本地音视频 / 恢复旧版文字稿：**
+  ```bash
+  python -m cli process /path/to/your/audio.mp4
+  ```
+  *(注：如果你传入的是之前生成过的 `_transcript.txt` 文件，系统会智能秒级跳过语音识别，直接让大模型重新为您排版全新的精美报告！)*
+
+- **处理在线视频链接：**
+  ```bash
+  python -m cli run "https://www.bilibili.com/video/BVxxxxx"
+  ```
+
+## 系统与环境依赖
+
+由于本项目涉及深度的音视频流提取、AI 推理和专业排版，除了 Python 包依赖外，**必须/推荐安装以下系统级底层组件**：
+
+1. **FFmpeg (必需)**
+   - **用途**：用于底层的视频解析、音频抽取、降噪切片以及关键帧提取。
+   - **安装说明**：Windows 系统请手动下载并将其加入 `PATH` 环境变量；Linux 用户可通过 `apt install ffmpeg` 安装。
+
+2. **GTK3 Runtime (强烈推荐)**
+   - **用途**：支撑 `WeasyPrint` 原生 PDF 排版引擎。如未安装，系统将降级使用无书签交互的浏览器截页模式渲染 PDF。
+   - **安装说明**：Windows 系统请下载并傻瓜式安装 [GTK3 for Windows Runtime](https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases)。
+
+3. **Google Chrome 或 Microsoft Edge (降级备选)**
+   - **用途**：若无 GTK3 环境，系统会兜底使用系统中的 Chrome/Edge 的无头模式（Headless）打印输出基础版 PDF。
+
+4. **CUDA 工具链 (可选但极其影响性能)**
+   - **用途**：通过 GPU 硬件加速 Whisper 语音识别和 pyannote 说话人分离。如果只有 CPU，解析长视频可能会耗费大量时间。
+
 ---
-*注：代码迁移进行中，具体部署文档和配置参数稍后补充。*
 
 **鸣谢**：本项目的架构重构与底层计算单元深度受益于开源社区，详细第三方开源归属声明请见 [CREDITS.txt](CREDITS.txt)。
 

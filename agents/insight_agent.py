@@ -53,7 +53,7 @@ class InsightAgent:
     - 效率评分怎么设计的？（多指标加权：发言均衡度 + 决策数量 + 时间利用率）
     - 情绪分析的准确率如何保证？（LLM few-shot + 置信度阈值）
     """
-    def __init__(self, llm_client=None):
+    def __init__(self, *, llm_client=None):
         self.llm = llm_client
 
     async def process(self, state: object) -> dict:
@@ -63,33 +63,28 @@ class InsightAgent:
         transcript_text = _state_value(state, "transcript_text", "")
         if not transcript_text:
             logger.warning("[InsightAgent] No transcript text available")
-            return {"insights": InsightOutput(meeting_id=meeting_id)}
-        try:
-            speaker_stats = self._compute_speaker_stats(transcript)
+            raise ValueError("transcript_text is required for InsightAgent")
+        speaker_stats = self._compute_speaker_stats(transcript)
+        if speaker_stats:
             llm_insights = await self._analyze_with_llm(transcript_text, speaker_stats)
-            output = InsightOutput(
-                meeting_id=meeting_id,
-                overall_sentiment=llm_insights.get("overall_sentiment", "neutral"),
-                sentiment_score=llm_insights.get("sentiment_score", 0.5),
-                speaker_stats=speaker_stats,
-                efficiency_score=self._compute_efficiency_score(
-                    speaker_stats,
-                    llm_insights.get("efficiency_score", 5.0),
-                    transcript,
-                ),
-                keywords=llm_insights.get("keywords", []),
-                highlights=llm_insights.get("highlights", []),
-                suggestions=llm_insights.get("suggestions", []),
-            )
-            logger.info(f"[InsightAgent] Analysis complete: sentiment={output.overall_sentiment}, efficiency={output.efficiency_score:.1f}")
-            return {"insights": output}
-        except Exception as e:
-            logger.error(f"[InsightAgent] Error: {e}")
-            speaker_stats = self._compute_speaker_stats(transcript)
-            return {
-                "errors": _state_value(state, "errors", []) + [f"InsightAgent: {str(e)}"],
-                "insights": InsightOutput(meeting_id=meeting_id, speaker_stats=speaker_stats),
-            }
+        else:
+            llm_insights = await self._analyze_with_llm(transcript_text, [])
+        output = InsightOutput(
+            meeting_id=meeting_id,
+            overall_sentiment=llm_insights.get("overall_sentiment", "neutral"),
+            sentiment_score=llm_insights.get("sentiment_score", 0.5),
+            speaker_stats=speaker_stats,
+            efficiency_score=self._compute_efficiency_score(
+                speaker_stats,
+                llm_insights.get("efficiency_score", 5.0),
+                transcript,
+            ),
+            keywords=llm_insights.get("keywords", []),
+            highlights=llm_insights.get("highlights", []),
+            suggestions=llm_insights.get("suggestions", []),
+        )
+        logger.info(f"[InsightAgent] Analysis complete: sentiment={output.overall_sentiment}, efficiency={output.efficiency_score:.1f}")
+        return {"insights": output}
 
     @staticmethod
     def _compute_speaker_stats(transcript: Any) -> list[SpeakerStat]:
@@ -127,8 +122,6 @@ class InsightAgent:
             {"role": "system", "content": INSIGHT_SYSTEM_PROMPT},
             {"role": "user", "content": INSIGHT_USER_PROMPT.format(transcript=transcript_text, speaker_stats=stats_text)},
         ]
-        if self.llm is None:
-            return {}
         result = await self.llm.chat_json(messages=messages, temperature=0.3, max_tokens=2048)
         result["overall_sentiment"] = result.get("overall_sentiment", "neutral").lower()
         return result

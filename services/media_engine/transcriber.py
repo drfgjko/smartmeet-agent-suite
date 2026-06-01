@@ -41,6 +41,7 @@ class FunASREngine(ASREngine):
                 model=self.model_name,
                 vad_model="fsmn-vad",
                 punc_model="ct-punc",
+                spk_model="cam++",
             )
         return self._pipeline
 
@@ -63,10 +64,12 @@ class FunASREngine(ASREngine):
                     seg_text = sent.get("text", "")
                     start_ms = sent.get("start", 0)
                     end_ms = sent.get("end", 0)
+                    spk_id = sent.get("spk", 0)
                     segments.append(SubtitleSegment(
                         start=start_ms / 1000.0,
                         end=end_ms / 1000.0,
                         text=seg_text.strip(),
+                        speaker=f"Speaker {spk_id + 1}" if isinstance(spk_id, int) else str(spk_id),
                     ))
             elif timestamps:
                 for ts in timestamps:

@@ -31,6 +31,118 @@ from services.media_engine import (
     transcribe,
 )
 from workflows.meeting_workflow import run_meeting_pipeline
+from services.integrations import create_llm_client, FeishuClient, JiraClient
+
+
+def _create_fallback_diarization(
+    transcript: Any, language: str
+) -> DiarizationResult:
+    """当转录为空或无法进行声纹分离时，创建默认的单说话人分离结果。"""
+    return DiarizationResult(
+        segments=[
+            DiarizedSegment(segment.start, segment.end, segment.text, "Speaker 1")
+            for segment in transcript.segments
+        ],
+        num_speakers=1,
+        speakers=["Speaker 1"],
+        language=language,
+    )
+
+
+def parse_transcript_file(path: Path) -> DiarizationResult:
+    import re
+    content = path.read_text(encoding="utf-8")
+    lines = content.split("\n")
+    segments = []
+    speakers = set()
+    full_text_parts = []
+    
+    current_speaker = "Speaker 1"
+    current_time_s = 0.0
+    
+    # 匹配 **Speaker 1** (00:00:00):
+    pattern_header = re.compile(r"^\*\*(.*?)\*\*\s*\((\d+:\d+(?::\d+)?)\):")
+    # 匹配 [Speaker 1] (00:00:00): 大家好
+    pattern_bracket = re.compile(r"^\[(.*?)\]\s*\((\d+:\d+(?::\d+)?)\):\s*(.*)$")
+    # 匹配 Speaker 1: 大家好
+    pattern_colon = re.compile(r"^([^:\*]+):\s*(.*)$")
+    
+    def _parse_time(ts_str: str) -> float:
+        parts = ts_str.split(":")
+        try:
+            if len(parts) == 3:
+                return float(parts[0]) * 3600 + float(parts[1]) * 60 + float(parts[2])
+            elif len(parts) == 2:
+                return float(parts[0]) * 60 + float(parts[1])
+        except ValueError:
+            pass
+        return 0.0
+
+    for line in lines:
+        line_strip = line.strip()
+        if not line_strip:
+            continue
+        
+        # 1. 匹配标准段落头: **Speaker 1** (00:00:00):
+        match_h = pattern_header.match(line_strip)
+        if match_h:
+            current_speaker = match_h.group(1).strip()
+            current_time_s = _parse_time(match_h.group(2))
+            speakers.add(current_speaker)
+            continue
+            
+        # 2. 匹配中括号带时间戳: [Speaker 1] (00:00:00): 大家好
+        match_b = pattern_bracket.match(line_strip)
+        if match_b:
+            spk = match_b.group(1).strip()
+            ts = _parse_time(match_b.group(2))
+            text = match_b.group(3).strip()
+            speakers.add(spk)
+            segments.append(DiarizedSegment(
+                start=ts,
+                end=ts + 5.0,
+                text=text,
+                speaker=spk
+            ))
+            full_text_parts.append(text)
+            continue
+            
+        # 3. 匹配冒号分割: Speaker 1: 大家好
+        match_c = pattern_colon.match(line_strip)
+        if match_c:
+            spk = match_c.group(1).strip()
+            text = match_c.group(2).strip()
+            if not spk.lower().startswith("http") and len(spk) < 30:
+                speakers.add(spk)
+                segments.append(DiarizedSegment(
+                    start=current_time_s,
+                    end=current_time_s + 5.0,
+                    text=text,
+                    speaker=spk
+                ))
+                full_text_parts.append(text)
+                current_time_s += 5.0
+                continue
+        
+        # 4. 普通缩进行或普通行
+        text = line_strip
+        segments.append(DiarizedSegment(
+            start=current_time_s,
+            end=current_time_s + 5.0,
+            text=text,
+            speaker=current_speaker
+        ))
+        full_text_parts.append(text)
+        current_time_s += 5.0
+
+    speakers.add(current_speaker)
+    return DiarizationResult(
+        segments=segments,
+        num_speakers=len(speakers) or 1,
+        speakers=sorted(list(speakers)) or ["Speaker 1"],
+        language="zh",
+    )
+
 
 # 进度回调函数类型：接收 (stage: str, metadata: dict) 并返回 Awaitable[None]
 ProgressCallback = Callable[[str, dict[str, Any]], Awaitable[None]]
@@ -51,23 +163,23 @@ def _model_dump_if_needed(value: Any) -> Any:
     return value
 
 
-def _serialize_agent_outputs(final_state: Any) -> dict[str, Any]:
+def _serialize_agent_outputs(final_state: dict[str, Any]) -> dict[str, Any]:
     """
     从工作流最终状态中提取并序列化四个 Agent 的输出结果。
 
     四个 Agent 分别为：summary（摘要）、actions（行动项）、insights（洞察）、followup（跟进）。
 
     Args:
-        final_state: meeting_workflow 完成后返回的最终状态对象
+        final_state: meeting_workflow 完成后返回的最终状态字典
 
     Returns:
         包含四个 Agent 输出的字典，所有 Pydantic 模型已被序列化为 dict
     """
     return {
-        "summary": _model_dump_if_needed(getattr(final_state, "summary", None)),
-        "actions": _model_dump_if_needed(getattr(final_state, "actions", None)),
-        "insights": _model_dump_if_needed(getattr(final_state, "insights", None)),
-        "followup": _model_dump_if_needed(getattr(final_state, "followup", None)),
+        "summary": _model_dump_if_needed(final_state.get("summary")),
+        "actions": _model_dump_if_needed(final_state.get("actions")),
+        "insights": _model_dump_if_needed(final_state.get("insights")),
+        "followup": _model_dump_if_needed(final_state.get("followup")),
     }
 
 
@@ -97,7 +209,6 @@ async def process_audio_capture(
     """
     # Step 1: 将音频字节写入临时文件
     work_dir = Path(tempfile.mkdtemp(prefix="smartmeet_ws_"))
-    work_dir.mkdir(parents=True, exist_ok=True)
     audio_file = work_dir / "input_audio.wav"
     audio_file.write_bytes(audio_bytes)
 
@@ -124,22 +235,20 @@ async def process_audio_capture(
             num_speakers=num_speakers,
         )
     else:
-        # 转录为空时，创建默认的单说话人分离结果，避免下游出错
-        diar_result = DiarizationResult(
-            segments=[
-                DiarizedSegment(segment.start, segment.end, segment.text, "Speaker 1")
-                for segment in transcript.segments
-            ],
-            num_speakers=1,
-            speakers=["Speaker 1"],
-            language=language,
-        )
+        diar_result = _create_fallback_diarization(transcript, language)
 
     # Step 6: 调用 LangGraph 多 Agent 工作流进行并行分析
+    llm_client = create_llm_client()
+    jira_client = JiraClient()
+    feishu_client = FeishuClient()
+    
     final_state = await run_meeting_pipeline(
         meeting_id=meeting_id,
         transcript_text=diar_result.transcript_with_speakers,
         transcript=diar_result,
+        llm_client=llm_client,
+        jira_client=jira_client,
+        feishu_client=feishu_client,
     )
 
     # Step 7: 组装 ASR 转录载荷用于 API 响应
@@ -176,9 +285,9 @@ async def emit_agent_events(final_state: Any, emit: ProgressCallback) -> None:
     await emit(
         "completed",
         {
-            "meeting_id": getattr(final_state, "meeting_id", ""),
-            "status": getattr(final_state, "status", "COMPLETED"),
-            "errors": getattr(final_state, "errors", []),
+            "meeting_id": final_state.get("meeting_id", ""),
+            "status": final_state.get("status", "COMPLETED"),
+            "errors": final_state.get("errors", []),
         },
     )
 
@@ -234,7 +343,8 @@ async def run_offline_pipeline(
         # 在线链接：先解析，再下载音视频
         if progress_callback:
             await progress_callback("started", {"message": "正在解析并下载视频链接..."})
-        parse_link(url)
+        parsed = parse_link(url)
+        logger.info(f"检测到链接平台: {parsed.platform.value}, 类型: {parsed.link_type.value}")
         download_dir = work_dir / "download"
         download_dir.mkdir(exist_ok=True)
 
@@ -259,78 +369,126 @@ async def run_offline_pipeline(
     else:
         raise ValueError("必须提供 input_path 或 url 中的一个")
 
-    # Step 3: 媒体预处理（降噪、提取音轨、获取视频元信息）
-    if progress_callback:
-        await progress_callback("preprocess", {"message": "正在进行媒体预处理（提取音轨、降噪）..."})
+    # 检测是否为已转录文本文件输入
+    is_transcript_input = False
+    if actual_path and actual_path.suffix.lower() == ".txt":
+        is_transcript_input = True
 
-    pre_result = await asyncio.to_thread(
-        preprocess,
-        input_files=[actual_path],
-        work_dir=work_dir,
-        denoise_level=denoise_level,
-    )
-
-    # Step 4: 语言检测（用于 ASR 模型选择）
-    if progress_callback:
-        await progress_callback("transcribe", {"message": "正在进行语音识别转录..."})
-
-    language = await asyncio.to_thread(detect_language, pre_result.audio_path)
-
-    # Step 5: ASR 语音识别转录
-    transcript = await asyncio.to_thread(transcribe, pre_result.audio_path, language=language)
-
-    # Step 6: 说话人分离（声纹识别 + 文本对齐）
-    if progress_callback:
-        await progress_callback("diarize", {"message": "正在进行说话人声纹识别与对齐..."})
-
-    if len(transcript.segments) > 0:
-        diar_result = await asyncio.to_thread(
-            diarize,
-            audio_path=pre_result.audio_path,
-            transcript=transcript,
-            num_speakers=num_speakers,
-        )
-    else:
-        # 降级为单说话人模式
-        diar_result = DiarizationResult(
-            segments=[
-                DiarizedSegment(segment.start, segment.end, segment.text, "Speaker 1")
-                for segment in transcript.segments
-            ],
-            num_speakers=1,
-            speakers=["Speaker 1"],
-            language=language,
-        )
-
-    # Step 7: 关键帧提取与字幕对齐（仅视频模式生效）
-    frames_result = []
-    if extract_frames and pre_result.is_video and pre_result.video_path:
+    if not is_transcript_input:
+        # Step 3: 媒体预处理（降噪、提取音轨、获取视频元信息）
         if progress_callback:
-            await progress_callback("keyframes", {"message": "正在提取关键帧（仅视频支持）..."})
-        frames_dir = work_dir / "keyframes"
-        frames_dir.mkdir(exist_ok=True)
+            await progress_callback("preprocess", {"message": "正在进行媒体预处理（提取音轨、降噪）..."})
+
+        pre_result = await asyncio.to_thread(
+            preprocess,
+            input_files=[actual_path],
+            work_dir=work_dir,
+            denoise_level=denoise_level,
+        )
+
+        # Step 4: 语言检测（用于 ASR 模型选择）
+        if progress_callback:
+            await progress_callback("transcribe", {"message": "正在进行语音识别转录..."})
+
+        language = await asyncio.to_thread(detect_language, pre_result.audio_path)
+
+        # Step 5: ASR 语音识别转录
+        import time
+        start_time = time.time()
+        transcribe_task = asyncio.create_task(asyncio.to_thread(transcribe, pre_result.audio_path, language=language))
+        
+        while not transcribe_task.done():
+            try:
+                await asyncio.wait_for(asyncio.shield(transcribe_task), timeout=5.0)
+            except asyncio.TimeoutError:
+                elapsed = int(time.time() - start_time)
+                if progress_callback:
+                    await progress_callback("transcribe", {"message": f"正在进行语音识别转录... (已耗时 {elapsed}s，大文件请耐心等待)"})
+                    
+        transcript = transcribe_task.result()
+
+        # Step 6: 说话人分离（声纹识别 + 文本对齐）
+        if progress_callback:
+            await progress_callback("diarize", {"message": "正在进行说话人声纹识别与对齐..."})
+
+        if len(transcript.segments) > 0:
+            diar_start_time = time.time()
+            diar_task = asyncio.create_task(asyncio.to_thread(
+                diarize,
+                audio_path=pre_result.audio_path,
+                transcript=transcript,
+                num_speakers=num_speakers,
+            ))
+            while not diar_task.done():
+                try:
+                    await asyncio.wait_for(asyncio.shield(diar_task), timeout=5.0)
+                except asyncio.TimeoutError:
+                    elapsed = int(time.time() - diar_start_time)
+                    if progress_callback:
+                        await progress_callback("diarize", {"message": f"正在进行说话人声纹识别与对齐... (已耗时 {elapsed}s，大文件请耐心等待)"})
+            diar_result = diar_task.result()
+        else:
+            diar_result = _create_fallback_diarization(transcript, language)
+
+        # 【新增加】阶段性保存产物（在此刻先将转录文本落盘，防止后续流程报错丢失数据）
         try:
-            # 提取关键帧后，将每帧与最近的字幕段落对齐（用于报告中插入截图）
-            extracted_frames = await asyncio.to_thread(
-                extract_keyframes,
-                video_path=pre_result.video_path,
-                output_dir=frames_dir,
-                max_frames=10,
-            )
-            frames_result = align_frames_to_subtitles(extracted_frames, transcript)
-        except Exception as frame_err:
-            # 关键帧提取失败不影响主流程，仅记录日志
-            logger.error(f"Failed to extract/align keyframes: {frame_err}")
+            from services import _find_project_root
+            reports_dir = _find_project_root() / "reports"
+            reports_dir.mkdir(parents=True, exist_ok=True)
+            intermediate_tx_path = reports_dir / f"{meeting_id}_transcript.txt"
+            intermediate_tx_path.write_text(diar_result.transcript_with_speakers, encoding="utf-8")
+            logger.info(f"[ApplicationService] Saved intermediate transcript text to {intermediate_tx_path}")
+        except Exception as tx_err:
+            logger.error(f"[ApplicationService] Failed to save intermediate transcript: {tx_err}")
+
+        # Step 7: 关键帧提取与字幕对齐（仅视频模式生效）
+        frames_result = []
+        if extract_frames and pre_result.is_video and pre_result.video_path:
+            if progress_callback:
+                await progress_callback("keyframes", {"message": "正在提取关键帧（仅视频支持）..."})
+            frames_dir = work_dir / "keyframes"
+            frames_dir.mkdir(exist_ok=True)
+            try:
+                # 提取关键帧后，将每帧与最近的字幕段落对齐（用于报告中插入截图）
+                extracted_frames = await asyncio.to_thread(
+                    extract_keyframes,
+                    video_path=pre_result.video_path,
+                    output_dir=frames_dir,
+                    max_frames=10,
+                )
+                frames_result = align_frames_to_subtitles(extracted_frames, transcript)
+            except Exception as frame_err:
+                # 关键帧提取失败不影响主流程，仅记录日志
+                logger.error(f"Failed to extract/align keyframes: {frame_err}")
+    else:
+        # 直接解析文本
+        if progress_callback:
+            await progress_callback("transcribe", {"message": "检测到转录文本，正在进行解析..."})
+        diar_result = parse_transcript_file(actual_path)
+        frames_result = []
+        # 构建一个 Dummy 预处理结果，因为文本输入没有真实的音视频
+        class DummyPreResult:
+            duration = diar_result.duration_seconds
+            is_video = False
+            video_path = None
+        pre_result = DummyPreResult()
 
     # Step 8: LangGraph 多 Agent 并行分析
     if progress_callback:
         await progress_callback("agent_running", {"message": "AI 会议协同助理正在并行分析（纪要生成、待办提取、效率评估、跟进）..."})
+
+    llm_client = create_llm_client()
+    jira_client = JiraClient()
+    feishu_client = FeishuClient()
 
     final_state = await run_meeting_pipeline(
         meeting_id=meeting_id,
         transcript_text=diar_result.transcript_with_speakers,
         transcript=diar_result,
         keyframes=frames_result,
+        llm_client=llm_client,
+        jira_client=jira_client,
+        feishu_client=feishu_client,
     )
 
     # Step 9: 组装输出结果
@@ -364,6 +522,44 @@ async def run_offline_pipeline(
                 if path_str:
                     output_files[fmt] = path_str
 
+    # 额外将转写文本写回为 reports 中的文本文件供下次复用，并在有标题时加上标题
+    try:
+        from services import _find_project_root
+        reports_dir = _find_project_root() / "reports"
+        reports_dir.mkdir(parents=True, exist_ok=True)
+        
+        summary_title = ""
+        if outputs.get("summary"):
+            summary_title = outputs["summary"].get("title", "")
+            
+        import re
+        safe_title = re.sub(r'[^\w\u4e00-\u9fa5\-]', '_', summary_title).strip().strip("_") if summary_title else ""
+        safe_title = safe_title[:50].strip()
+        
+        filename_base = f"{meeting_id}_{safe_title}" if safe_title else meeting_id
+        final_tx_path = reports_dir / f"{filename_base}_transcript.txt"
+        
+        if not is_transcript_input:
+            # 如果是刚跑出的任务，中间文件名为无标题版本
+            intermediate_tx_path = reports_dir / f"{meeting_id}_transcript.txt"
+            if intermediate_tx_path.exists():
+                if final_tx_path != intermediate_tx_path:
+                    # 将中间文件重命名为包含标题的新名字
+                    import shutil
+                    shutil.move(str(intermediate_tx_path), str(final_tx_path))
+            else:
+                final_tx_path.write_text(diar_result.transcript_with_speakers, encoding="utf-8")
+            
+            output_files["transcript"] = str(final_tx_path)
+            logger.info(f"[ApplicationService] Final transcript text available at {final_tx_path}")
+        else:
+            # 如果输入本身就是 transcript 文件，则不再写入套娃复印本，直接沿用原路径
+            output_files["transcript"] = str(actual_path)
+            logger.info(f"[ApplicationService] Reused original transcript text from {actual_path}")
+            
+    except Exception as tx_err:
+        logger.error(f"[ApplicationService] Failed to finalize transcript text file: {tx_err}")
+
     # 标题优先使用 Summary Agent 生成的主题，否则使用默认值
     summary_title = ""
     if outputs.get("summary"):
@@ -374,7 +570,7 @@ async def run_offline_pipeline(
     return {
         "meeting_id": meeting_id,
         "title": title,
-        "status": getattr(final_state, "status", "COMPLETED"),
+        "status": final_state.get("status", "COMPLETED"),
         "duration": pre_result.duration,
         "num_speakers": diar_result.num_speakers,
         "speakers": diar_result.speakers,
@@ -395,5 +591,5 @@ async def run_offline_pipeline(
             }
             for frame in frames_result
         ],
-        "errors": getattr(final_state, "errors", []),
+        "errors": final_state.get("errors", []),
     }

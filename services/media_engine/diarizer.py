@@ -40,6 +40,12 @@ class DiarizationResult:
     language: str = "zh"
 
     @property
+    def duration_seconds(self) -> float:
+        if not self.segments:
+            return 0.0
+        return self.segments[-1].end
+
+    @property
     def full_text(self) -> str:
         lines = []
         for seg in self.segments:
@@ -70,6 +76,31 @@ def diarize(
     min_speakers: int | None = None,
     max_speakers: int | None = None,
 ) -> DiarizationResult:
+    # 如果转录结果中已经自带了发言人信息（例如 FunASR 本地提取的声纹），则直接构造并返回
+    if transcript and transcript.segments and any(getattr(seg, "speaker", None) is not None for seg in transcript.segments):
+        logger.info("Transcript already contains speaker information, bypassing PyAnnote.")
+        segments = []
+        speakers = set()
+        for seg in transcript.segments:
+            spk = seg.speaker or "Speaker 1"
+            segments.append(DiarizedSegment(
+                start=seg.start,
+                end=seg.end,
+                text=seg.text,
+                speaker=spk,
+            ))
+            speakers.add(spk)
+        
+        # 按照声纹段合并相邻的同一发言人段落
+        segments = _merge_adjacent_speakers(segments)
+        
+        return DiarizationResult(
+            segments=segments,
+            num_speakers=len(speakers),
+            speakers=sorted(list(speakers)),
+            language=transcript.language or "zh",
+        )
+
     try:
         return _diarize_pyannote(
             audio_path, transcript, num_speakers, min_speakers, max_speakers

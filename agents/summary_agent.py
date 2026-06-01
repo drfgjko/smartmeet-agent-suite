@@ -57,7 +57,7 @@ class SummaryAgent:
     - 如何保证输出格式正确？（response_format + 解析降级）
     - 长文本如何处理？（分块摘要 + 合并，MapReduce策略）
     """
-    def __init__(self, llm_client=None):
+    def __init__(self, *, llm_client=None):
         self.llm = llm_client
 
     async def process(self, state: object) -> dict:
@@ -66,25 +66,16 @@ class SummaryAgent:
         transcript_text = _state_value(state, "transcript_text", "")
         if not transcript_text:
             logger.warning("[SummaryAgent] No transcript text available")
-            return {"summary": SummaryOutput(title="未知会议")}
-        try:
-            summary = await self._generate_summary(transcript_text)
-            logger.info(f"[SummaryAgent] Summary generated: {summary.title}")
-            return {"summary": summary}
-        except Exception as e:
-            logger.error(f"[SummaryAgent] Error: {e}")
-            return {
-                "errors": _state_value(state, "errors", []) + [f"SummaryAgent: {str(e)}"],
-                "summary": self._generate_fallback_summary(transcript_text),
-            }
+            raise ValueError("transcript_text is required for SummaryAgent")
+        summary = await self._generate_summary(transcript_text)
+        logger.info(f"[SummaryAgent] Summary generated: {summary.title}")
+        return {"summary": summary}
 
     async def _generate_summary(self, transcript: str) -> SummaryOutput:
         messages = [
             {"role": "system", "content": SUMMARY_SYSTEM_PROMPT},
             {"role": "user", "content": SUMMARY_USER_PROMPT.format(transcript=transcript)}
         ]
-        if self.llm is None:
-            return self._generate_fallback_summary(transcript)
         result = await self.llm.chat_json(messages=messages, temperature=0.3, max_tokens=4096)
         topics = [
             TopicDetail.model_validate(topic)
@@ -98,32 +89,4 @@ class SummaryAgent:
             topics=topics,
             decisions=result.get("decisions", []),
             next_steps=result.get("next_steps", []),
-        )
-
-    @staticmethod
-    def _generate_fallback_summary(transcript: str) -> SummaryOutput:
-        lines = transcript.strip().split("\n")
-        speakers = set()
-        for line in lines:
-            if ":" in line:
-                parts = line.split(":", 1)
-                speaker_part = parts[0].strip()
-                if "]" in speaker_part:
-                    speaker_part = speaker_part.split("]", 1)[-1].strip()
-                speakers.add(speaker_part)
-        participants = sorted(speakers)
-        return SummaryOutput(
-            title="会议纪要（自动摘要降级模式）",
-            date="",
-            participants=participants,
-            topics=[
-                TopicDetail(
-                    title="会议内容",
-                    discussion_points=["（LLM调用失败，请查看原始转写文本）"],
-                    participants=participants,
-                    conclusion="",
-                )
-            ],
-            decisions=[],
-            next_steps=[],
         )

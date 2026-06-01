@@ -6,12 +6,16 @@ SmartMeet Agent Suite - FastAPI 服务入口
 from __future__ import annotations
 
 import os
+from pathlib import Path
+from dotenv import load_dotenv
+
+# 加载 .env 配置文件
+load_dotenv(dotenv_path=Path(__file__).resolve().parents[1] / ".env")
 
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from pathlib import Path
 
 from api.routes.recording import router as recording_router
 from api.routes.websocket import router as ws_router
@@ -61,7 +65,25 @@ async def health():
     return {"status": "ok"}
 
 def start():
-    uvicorn.run("api.main:app", host="0.0.0.0", port=8000, reload=True)
+    reload_enabled = os.getenv("UVICORN_RELOAD", "false").lower() == "true"
+    
+    from rich.console import Console
+    from rich.panel import Panel
+    console = Console()
+    console.print()
+    console.print(Panel(
+        "[bold cyan]SmartMeet API 服务已成功启动！[/bold cyan]\n"
+        "✨ [green]服务运行在:[/green] http://127.0.0.1:8000\n"
+        "📚 [green]接口文档:[/green] http://127.0.0.1:8000/docs\n\n"
+        "💡 [bold yellow]现在你可以把这个窗口挂在后台，新开一个终端运行 CLI 指令啦！[/bold yellow]\n"
+        "⚠️  按 [red]Ctrl+C[/red] 可以关闭本服务。",
+        title="🚀 SmartMeet Agent Suite",
+        expand=False,
+        border_style="cyan"
+    ))
+    console.print()
+    
+    uvicorn.run("api.main:app", host="0.0.0.0", port=8000, reload=reload_enabled)
 
 if __name__ == "__main__":
     start()

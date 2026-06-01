@@ -9,7 +9,6 @@ Action Agent（待办Agent）
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
 from loguru import logger
 
 from schemas import ActionItem, ActionOutput, SyncStatus
@@ -60,7 +59,7 @@ class ActionAgent:
     - 如何处理人名和 Jira 用户的映射？（企业通讯录 + 模糊匹配）
     - 如果 Jira/飞书不可用怎么办？（降级到本地存储 + 异步重试）
     """
-    def __init__(self, llm_client=None, jira_client=None, feishu_client=None):
+    def __init__(self, *, llm_client=None, jira_client=None, feishu_client=None):
         self.llm = llm_client
         self.jira = jira_client
         self.feishu = feishu_client
@@ -71,30 +70,21 @@ class ActionAgent:
         transcript_text = _state_value(state, "transcript_text", "")
         if not transcript_text:
             logger.warning("[ActionAgent] No transcript text available")
-            output = ActionOutput(meeting_id=meeting_id)
-            return {"actions": output}
-        try:
-            action_items = await self._extract_actions(transcript_text)
-            synced_items, sync_status = await sync_actions_to_external(
-                items=action_items,
-                meeting_id=meeting_id,
-                jira_client=self.jira,
-                feishu_client=self.feishu,
-            )
-            output = ActionOutput(
-                meeting_id=meeting_id,
-                action_items=synced_items,
-                sync_status=sync_status,
-            )
-            logger.info(f"[ActionAgent] Extracted {len(synced_items)} action items")
-            return {"actions": output}
-        except Exception as e:
-            logger.error(f"[ActionAgent] Error: {e}")
-            output = ActionOutput(meeting_id=meeting_id)
-            return {
-                "errors": _state_value(state, "errors", []) + [f"ActionAgent: {str(e)}"],
-                "actions": output,
-            }
+            raise ValueError("transcript_text is required for ActionAgent")
+        action_items = await self._extract_actions(transcript_text)
+        synced_items, sync_status = await sync_actions_to_external(
+            items=action_items,
+            meeting_id=meeting_id,
+            jira_client=self.jira,
+            feishu_client=self.feishu,
+        )
+        output = ActionOutput(
+            meeting_id=meeting_id,
+            action_items=synced_items,
+            sync_status=sync_status,
+        )
+        logger.info(f"[ActionAgent] Extracted {len(synced_items)} action items")
+        return {"actions": output}
 
     async def _extract_actions(self, transcript: str) -> list[ActionItem]:
         today = datetime.now().strftime("%Y-%m-%d")
@@ -102,8 +92,6 @@ class ActionAgent:
             {"role": "system", "content": ACTION_SYSTEM_PROMPT},
             {"role": "user", "content": ACTION_USER_PROMPT.format(today=today, transcript=transcript)},
         ]
-        if self.llm is None:
-            return []
         result = await self.llm.chat_json(messages=messages, temperature=0.2, max_tokens=2048)
         items = []
         for raw in result.get("action_items", []):

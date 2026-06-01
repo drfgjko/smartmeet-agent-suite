@@ -65,21 +65,13 @@ class UnifiedLLMClient:
         return content or ""
 
     async def chat_json(self, messages: list[dict[str, str]], temperature: float = 0.3, max_tokens: int = 4096) -> dict:
-        """异步结构化 JSON 响应生成，内置自动降级清洗处理"""
-        try:
-            text = await self.chat(
-                messages=messages,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                response_format={"type": "json_object"},
-            )
-        except Exception as e:
-            logger.warning(f"异步请求指定 json_object 失败，自动退化至普通文本流聊天并解析: {e}")
-            text = await self.chat(
-                messages=messages,
-                temperature=temperature,
-                max_tokens=max_tokens,
-            )
+        """异步结构化 JSON 响应生成"""
+        text = await self.chat(
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            response_format={"type": "json_object"},
+        )
         return clean_and_parse_json(text)
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))
@@ -99,21 +91,13 @@ class UnifiedLLMClient:
         return content or ""
 
     def chat_json_sync(self, messages: list[dict[str, str]], temperature: float = 0.3, max_tokens: int = 4096) -> dict:
-        """同步结构化 JSON 响应生成，内置自动降级清洗处理"""
-        try:
-            text = self.chat_sync(
-                messages=messages,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                response_format={"type": "json_object"},
-            )
-        except Exception as e:
-            logger.warning(f"同步请求指定 json_object 失败，自动退化至普通文本流聊天并解析: {e}")
-            text = self.chat_sync(
-                messages=messages,
-                temperature=temperature,
-                max_tokens=max_tokens,
-            )
+        """同步结构化 JSON 响应生成"""
+        text = self.chat_sync(
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            response_format={"type": "json_object"},
+        )
         return clean_and_parse_json(text)
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))

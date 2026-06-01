@@ -17,6 +17,7 @@ class SubtitleSegment:
     start: float
     end: float
     text: str
+    speaker: str | None = None
 
     @property
     def start_ts(self) -> str:

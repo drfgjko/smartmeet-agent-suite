@@ -19,13 +19,23 @@ class JiraClient:
 
     API 文档: https://developer.atlassian.com/cloud/jira/platform/rest/v3/
     """
-    def __init__(self, server=None, email=None, api_token=None, project_key="MEET"):
+    def __init__(self, server=None, email=None, api_token=None, project_key="MEET", user_mapping=None):
         self.server = server or os.getenv("JIRA_SERVER", "")
         self.email = email or os.getenv("JIRA_EMAIL", "")
         self.api_token = api_token or os.getenv("JIRA_API_TOKEN", "")
         self.project_key = project_key or os.getenv("JIRA_PROJECT_KEY", "MEET")
         self._jira = None
         self._enabled = bool(self.server and self.email and self.api_token)
+        raw_mapping = user_mapping or os.getenv("JIRA_USER_MAPPING", "{}")
+        if isinstance(raw_mapping, str):
+            try:
+                import json
+                self.USER_MAPPING: dict[str, str] = json.loads(raw_mapping)
+            except json.JSONDecodeError:
+                logger.warning(f"Invalid JIRA_USER_MAPPING JSON, using empty mapping")
+                self.USER_MAPPING: dict[str, str] = {}
+        else:
+            self.USER_MAPPING: dict[str, str] = raw_mapping or {}
 
     def _get_client(self):
         if self._jira is None and self._enabled:
@@ -97,8 +107,6 @@ class JiraClient:
         except Exception as e:
             logger.error(f"Failed to upload attachment to Jira issue {issue_key}: {e}")
             return False
-
-    USER_MAPPING: dict[str, str] = {}
 
     def resolve_user(self, display_name: str) -> str | None:
         return self.USER_MAPPING.get(display_name)

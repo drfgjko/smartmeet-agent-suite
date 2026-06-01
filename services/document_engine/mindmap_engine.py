@@ -13,6 +13,7 @@ Mermaid Mindmap Generator（思维导图生成引擎）
 
 from __future__ import annotations
 
+import asyncio
 import os
 import re
 from pathlib import Path
@@ -36,10 +37,11 @@ class MindMapPipeline:
         self,
         llm_client: Any = None,
     ):
-        from services.integrations.llm_client import create_llm_client
-        self.llm = llm_client or create_llm_client()
+        self.llm = llm_client
 
     def generate_mindmap(self, text: str) -> str:
+        if self.llm is None:
+            raise RuntimeError("MindMapPipeline requires llm_client to be injected")
         prompt = MINDMAP_PROMPT.format(text=text)
 
         raw_output = self.llm.chat_sync(
@@ -62,3 +64,9 @@ class MindMapPipeline:
         content = f"# 会议思维导图\n\n```mermaid\n{mindmap_code}\n```"
         output_path.write_text(content, encoding="utf-8")
         return output_path
+
+    async def async_generate_mindmap(self, text: str) -> str:
+        return await asyncio.to_thread(self.generate_mindmap, text)
+
+    async def async_save_mindmap(self, text: str, output_path: Path) -> Path:
+        return await asyncio.to_thread(self.save_mindmap, text, output_path)

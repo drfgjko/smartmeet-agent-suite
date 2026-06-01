@@ -21,25 +21,27 @@ from .markdown_formatter import (
 )
 
 
-LAYOUT_SYSTEM_PROMPT = """你是一位专业的文档排版专家。
-你的任务是将提供的会议报告（包含会议纪要、待办事项和会议洞察）与视频中提取的关键帧进行智能融合。
-你需要根据关键帧的时间戳、字幕文本，将 {IMAGE:N} 标记（其中 N 为 1 到 关键帧数量 之间的整数）优雅地插入到报告正文中相关的段落后面。
-同时，在每个 {IMAGE:N} 占位符下方添加一行简短的斜体配图说明（例如：*图 N：视频时间戳 XX:XX 处，发言人正在展示 XX 方案*）。
+LAYOUT_SYSTEM_PROMPT = """你是一位顶级的知识创作者和学术讲义编辑。
+你的任务是将一系列干瘪枯燥的会议数据点（议题、待办、洞察），彻底打碎并溶解，重新创作出一篇【行云流水、逻辑连贯、适合出版的深度知识长文（Lecture Note）】。
 
-排版规则：
-1. 不要大幅修改报告的原始文字，只做排版插入和配图说明。
-2. 保持原有的标题层级（## 和 ###）与列表格式。
-3. 如果某些关键帧与正文内容关联性较弱，也可以在报告中单独分节或追加，但要保持图文呼应的逻辑。
-4. 输出必须是合法的 Markdown 文本。
+排版与重组的绝对法则：
+1. **彻底摒弃四股文结构**：绝不能出现“## 会议纪要”、“## 待办事项”、“## 会议洞察”这种刻板且割裂的标题！你要把“待办事项”巧妙地作为“下一步演进与计划”的段落融入长文中，将“发言时间/洞察”作为背景介绍融入开头或结尾。让全篇浑然一体。
+2. **长篇沉浸式扩写**：绝不能仅仅是罗列骨架。要根据你对知识的深刻理解，把干瘪的议题发散成大段的专业知识分析、案例拆解和原理讲解。
+3. **图文智能穿插**：如果提供了视频关键帧 {IMAGE:N}，将它们极其自然地融入到相关知识段落中。并在图片正下方附上斜体说明。
+4. **高端排版组件**：抛弃无聊的加粗，你要在知识讲授的关键点，大量使用以下高亮框增强期刊感：
+   {IMPORTANT}这里提炼核心思想、方法论或最终定论{/IMPORTANT}
+   {KNOWLEDGE}这里补充行业背景、前置概念或术语科普{/KNOWLEDGE}
+   {WARNING}这里指出常见的误区、技术瓶颈或落地风险{/WARNING}
+5. 输出必须是合法的纯 Markdown 文本，并给文章起一个响亮的主标题（#开头）。
 """
 
-LAYOUT_USER_PROMPT = """请对以下会议报告和视频关键帧进行智能图文融合排版。
+LAYOUT_USER_PROMPT = """请对以下素材进行彻底解构与重生：
 
-## 视频关键帧列表：
+## 视频画面线索（如果有）：
 {keyframes_desc}
 
-## 会议报告草稿：
-{draft_report}
+## 提供的事实依据素材（干瘪数据，请将其彻底溶解到长文中，绝不要照搬里面的死板标题）：
+{reference_data}
 """
 
 
@@ -63,19 +65,14 @@ class ReportComposer:
         actions_md = format_actions_markdown(actions)
         insights_md = format_insights_markdown(insights)
 
-        # 2. 合并草稿
-        draft_report = (
-            f"# 会议报告 - {meeting_id}\n\n"
-            f"生成时间: {datetime.now().isoformat()}\n\n"
-            f"---\n\n"
-            f"## 会议纪要\n\n{summary_md}\n\n"
-            f"---\n\n"
-            f"## 待办事项\n\n{actions_md}\n\n"
-            f"---\n\n"
-            f"## 会议洞察\n\n{insights_md}\n"
+        # 2. 组装参考素材（不再作为最终报告）
+        reference_data = (
+            f"=== 议题与讨论 ===\n{summary_md}\n\n"
+            f"=== 行动计划与决策 ===\n{actions_md}\n\n"
+            f"=== 沟通与行为洞察 ===\n{insights_md}\n"
         )
 
-        final_report_md = draft_report
+        final_report_md = f"# 会议报告 - {meeting_id}\n\n请配置 LLM 客户端以启用连贯长文讲义生成功能。\n\n" + reference_data
 
         # 3. 关键帧标准化
         kf_objects = []
@@ -92,25 +89,22 @@ class ReportComposer:
                         caption=f.get("caption", ""),
                     ))
 
-        # 4. LLM 智能融合排版
-        if kf_objects and self.llm:
-            logger.info(f"[ReportComposer] Aligning {len(kf_objects)} keyframes with LLM...")
+        # 4. LLM 智能重塑为连续讲义（只要有 LLM 就必须触发）
+        if self.llm:
+            logger.info("[ReportComposer] Regenerating structural data into cohesive lecture notes...")
             kf_desc_items = []
-            for idx, kf in enumerate(kf_objects, 1):
-                ts = kf.timestamp_str
-                sub = kf.subtitle_text or "无画面字幕/视频帧"
-                kf_desc_items.append(f"Fig.{idx} at {ts}: {sub}")
-            keyframes_desc = "\n".join(kf_desc_items)
+            if kf_objects:
+                for idx, kf in enumerate(kf_objects, 1):
+                    ts = kf.timestamp_str
+                    sub = kf.subtitle_text or "无画面字幕/视频帧"
+                    kf_desc_items.append(f"Fig.{idx} at {ts}: {sub}")
+            keyframes_desc = "\n".join(kf_desc_items) if kf_desc_items else "（本录音无视频关键帧，纯音频生成）"
 
             messages = [
                 {"role": "system", "content": LAYOUT_SYSTEM_PROMPT},
-                {"role": "user", "content": LAYOUT_USER_PROMPT.format(keyframes_desc=keyframes_desc, draft_report=draft_report)}
+                {"role": "user", "content": LAYOUT_USER_PROMPT.format(keyframes_desc=keyframes_desc, reference_data=reference_data)}
             ]
-            try:
-                final_report_md = await self.llm.chat(messages=messages, temperature=0.3, max_tokens=4096)
-                logger.info("[ReportComposer] Dynamic keyframe alignment completed successfully")
-            except Exception as e:
-                logger.error(f"[ReportComposer] Keyframe alignment LLM pass failed: {e}. Falling back to raw draft.")
-                final_report_md = draft_report
+            final_report_md = await self.llm.chat(messages=messages, temperature=0.4, max_tokens=6000)
+            logger.info("[ReportComposer] Cohesive lecture note generated successfully.")
 
         return final_report_md, kf_objects

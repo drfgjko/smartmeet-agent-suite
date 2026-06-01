@@ -14,22 +14,24 @@ from agents.action_agent import ActionAgent
 from agents.insight_agent import InsightAgent
 from agents.followup_agent import FollowUpAgent
 from schemas import MeetingGraphState
-
-from services.integrations.llm_client import create_llm_client
-from services.integrations.jira_client import JiraClient
-from services.integrations.feishu_client import FeishuClient
 from services.media_engine import DiarizationResult, ExtractedFrame
+
+_compiled_graph_cache: dict[str, Any] = {}
+
+
+def _get_cache_key(llm_client, jira_client, feishu_client) -> str:
+    return str(id(llm_client))
+
 
 def build_meeting_graph(llm_client=None, jira_client=None, feishu_client=None) -> StateGraph:
 
-    llm = llm_client or create_llm_client()
-    jira = jira_client or JiraClient()
-    feishu = feishu_client or FeishuClient()
+    if llm_client is None:
+        raise ValueError("llm_client is required for meeting graph")
     
-    summary_agent = SummaryAgent(llm)
-    action_agent = ActionAgent(llm, jira, feishu)
-    insight_agent = InsightAgent(llm)
-    followup_agent = FollowUpAgent(feishu_client=feishu, jira_client=jira, llm_client=llm)
+    summary_agent = SummaryAgent(llm_client=llm_client)
+    action_agent = ActionAgent(llm_client=llm_client, jira_client=jira_client, feishu_client=feishu_client)
+    insight_agent = InsightAgent(llm_client=llm_client)
+    followup_agent = FollowUpAgent(feishu_client=feishu_client, jira_client=jira_client, llm_client=llm_client)
 
     graph = StateGraph(MeetingGraphState)
 
@@ -56,13 +58,18 @@ def compile_meeting_graph(
     jira_client: Any = None,
     feishu_client: Any = None,
 ) -> Any:
+    cache_key = _get_cache_key(llm_client, jira_client, feishu_client)
+    if cache_key in _compiled_graph_cache:
+        return _compiled_graph_cache[cache_key]
+
     graph = build_meeting_graph(
         llm_client=llm_client,
         jira_client=jira_client,
         feishu_client=feishu_client,
     )
     compiled = graph.compile()
-    logger.info("Meeting graph compiled successfully")
+    _compiled_graph_cache[cache_key] = compiled
+    logger.info("Meeting graph compiled and cached successfully")
     return compiled
 
 async def run_meeting_pipeline(
@@ -73,7 +80,6 @@ async def run_meeting_pipeline(
     llm_client: Any = None,
     jira_client: Any = None,
     feishu_client: Any = None,
-    **kwargs: Any,
 ) -> dict:
     logger.info(f"Starting meeting pipeline: {meeting_id}")
     
@@ -88,7 +94,8 @@ async def run_meeting_pipeline(
         jira_client=jira_client,
         feishu_client=feishu_client,
     )
-    final_state = await compiled_graph.ainvoke(initial_state)
+    raw_state = await compiled_graph.ainvoke(initial_state)
+    final_state = raw_state.model_dump() if hasattr(raw_state, "model_dump") else dict(raw_state)
     errors = final_state.get("errors", [])
     if errors:
         logger.warning(f"Pipeline completed with errors: {errors}")

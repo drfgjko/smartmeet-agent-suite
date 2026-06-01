@@ -46,6 +46,7 @@ class ReportDelivery:
         # 1. 飞书分发
         if self.feishu and getattr(self.feishu, "is_enabled", False):
             feishu_result = DeliveryResult(channel="feishu")
+            asset_errors: list[str] = []
             try:
                 summary_md = format_summary_markdown(summary)
                 actions_md = format_actions_markdown(actions)
@@ -71,11 +72,11 @@ class ReportDelivery:
                                 feishu_result.artifacts.append(pdf_key)
                             else:
                                 logger.error("[ReportDelivery] Feishu PDF send failed")
-                                feishu_result.success = False
+                                asset_errors.append("pdf_send_failed")
                         else:
                             logger.error("[ReportDelivery] Feishu PDF upload failed")
-                            feishu_result.success = False
-                            
+                            asset_errors.append("pdf_upload_failed")
+
                     if mindmap_generated and mindmap_path:
                         mm_key = await self.feishu.upload_file(mindmap_path, file_type="doc")
                         if mm_key:
@@ -84,10 +85,14 @@ class ReportDelivery:
                                 feishu_result.artifacts.append(mm_key)
                             else:
                                 logger.error("[ReportDelivery] Feishu Mindmap send failed")
-                                feishu_result.success = False
+                                asset_errors.append("mindmap_send_failed")
                         else:
                             logger.error("[ReportDelivery] Feishu Mindmap upload failed")
-                            feishu_result.success = False
+                            asset_errors.append("mindmap_upload_failed")
+
+                if asset_errors:
+                    feishu_result.partial_success = True
+                    feishu_result.asset_errors = asset_errors
             except Exception as e:
                 logger.error(f"[ReportDelivery] Feishu delivery failed: {e}")
                 feishu_result.success = False

@@ -29,10 +29,15 @@ class FeishuClient:
         self.app_secret = app_secret or os.getenv("FEISHU_APP_SECRET", "")
         self.webhook_url = webhook_url or os.getenv("FEISHU_WEBHOOK_URL", "")
         self.receive_id = os.getenv("FEISHU_RECEIVE_ID", os.getenv("FEISHU_CHAT_ID", ""))
-        self._client = httpx.AsyncClient(timeout=30.0)
+        self._client = None
         self._tenant_token = ""
         self._token_expires_at = 0
         self._enabled = bool((self.app_id and self.app_secret) or self.webhook_url)
+
+    def _get_client(self) -> httpx.AsyncClient:
+        if self._client is None:
+            self._client = httpx.AsyncClient(timeout=30.0)
+        return self._client
 
     @property
     def is_enabled(self) -> bool:
@@ -43,7 +48,7 @@ class FeishuClient:
             return self._tenant_token
         if not (self.app_id and self.app_secret):
             return ""
-        resp = await self._client.post(
+        resp = await self._get_client().post(
             f"{self.BASE_URL}/auth/v3/tenant_access_token/internal",
             json={"app_id": self.app_id, "app_secret": self.app_secret},
         )
@@ -64,7 +69,7 @@ class FeishuClient:
                 "elements": [{"tag": "markdown", "content": content}],
             },
         }
-        resp = await self._client.post(self.webhook_url, json=card)
+        resp = await self._get_client().post(self.webhook_url, json=card)
         data = resp.json()
         success = data.get("code", -1) == 0
         if success:
@@ -78,7 +83,7 @@ class FeishuClient:
         token = await self._get_tenant_token()
         if not token:
             return {"success": False, "error": "No token"}
-        resp = await self._client.post(
+        resp = await self._get_client().post(
             f"{self.BASE_URL}/im/v1/messages",
             params={"receive_id_type": receive_id_type},
             headers={"Authorization": f"Bearer {token}"},
@@ -94,7 +99,7 @@ class FeishuClient:
         task_body = {"summary": summary, "description": description or f"来源：会议助手自动创建"}
         if due_timestamp:
             task_body["due"] = {"timestamp": str(due_timestamp), "is_all_day": True}
-        resp = await self._client.post(
+        resp = await self._get_client().post(
             f"{self.BASE_URL}/task/v2/tasks",
             headers={"Authorization": f"Bearer {token}"},
             json=task_body,
@@ -135,19 +140,16 @@ class FeishuClient:
         url = f"{self.BASE_URL}/im/v1/files"
         headers = {"Authorization": f"Bearer {token}"}
         
-        # Read bytes to avoid file open encoding checks
-        file_bytes = path.read_bytes()
-        
+        files = {
+            "file": (path.name, open(path, "rb"), "application/octet-stream")
+        }
         data = {
             "file_type": file_type,
             "file_name": path.name,
         }
-        files = {
-            "file": (path.name, file_bytes, "application/octet-stream")
-        }
         
         try:
-            resp = await self._client.post(url, headers=headers, data=data, files=files)
+            resp = await self._get_client().post(url, headers=headers, data=data, files=files)
             res = resp.json()
             if res.get("code") == 0:
                 file_key = res.get("data", {}).get("file_key", "")
@@ -180,7 +182,7 @@ class FeishuClient:
             "content": content_str,
         }
         try:
-            resp = await self._client.post(url, headers=headers, params=params, json=body)
+            resp = await self._get_client().post(url, headers=headers, params=params, json=body)
             res = resp.json()
             success = res.get("code") == 0
             if success:
@@ -193,7 +195,8 @@ class FeishuClient:
             return False
 
     async def close(self):
-        await self._client.aclose()
+        if self._client is not None:
+            await self._client.aclose()
 
     async def __aenter__(self):
         return self

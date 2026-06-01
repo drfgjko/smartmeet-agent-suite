@@ -8,6 +8,7 @@ Action Sync Service（待办外部同步服务）
 
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime
 from typing import Any
 
@@ -31,39 +32,37 @@ async def sync_actions_to_external(
     """
     synced: list[ActionItem] = []
 
-    for item in items:
-        # Jira 同步
+    async def sync_single(item: ActionItem) -> ActionItem:
         if jira_client and getattr(jira_client, "is_enabled", False):
-            try:
-                jira_result = jira_client.create_issue(
-                    summary=f"[会议待办] {item.task}",
-                    description=f"来源：会议 {meeting_id}\n负责人：{item.assignee}\n上下文：{item.context}",
-                    assignee=jira_client.resolve_user(item.assignee),
-                    due_date=item.deadline or None,
-                    priority=item.priority,
-                    labels=["meeting-auto", f"meeting-{meeting_id}"],
-                )
-                item.jira_issue_key = jira_result["key"]
-            except Exception as e:
-                logger.error(f"Failed to sync to Jira: {item.task} - {e}")
+            jira_result = await asyncio.to_thread(
+                jira_client.create_issue,
+                summary=f"[会议待办] {item.task}",
+                description=f"来源：会议 {meeting_id}\n负责人：{item.assignee}\n上下文：{item.context}",
+                assignee=jira_client.resolve_user(item.assignee),
+                due_date=item.deadline or None,
+                priority=item.priority,
+                labels=["meeting-auto", f"meeting-{meeting_id}"],
+            )
+            item.jira_issue_key = jira_result["key"]
 
-        # 飞书同步
         if feishu_client and getattr(feishu_client, "is_enabled", False):
-            try:
-                due_ts = None
-                if item.deadline:
+            due_ts = None
+            if item.deadline:
+                try:
                     due_dt = datetime.strptime(item.deadline, "%Y-%m-%d")
                     due_ts = int(due_dt.timestamp())
-                feishu_result = await feishu_client.create_task(
-                    summary=f"[会议待办] {item.task}",
-                    description=f"负责人：{item.assignee}\n来源会议：{meeting_id}\n上下文：{item.context}",
-                    due_timestamp=due_ts,
-                )
-                item.feishu_task_id = feishu_result.get("task_id")
-            except Exception as e:
-                logger.error(f"Failed to sync to Feishu: {item.task} - {e}")
+                except ValueError:
+                    logger.warning(f"[ActionSync] Invalid deadline format: {item.deadline}, skipping")
+            feishu_result = await feishu_client.create_task(
+                summary=f"[会议待办] {item.task}",
+                description=f"负责人：{item.assignee}\n来源会议：{meeting_id}\n上下文：{item.context}",
+                due_timestamp=due_ts,
+            )
+            item.feishu_task_id = feishu_result.get("task_id")
 
-        synced.append(item)
+        return item
+
+    synced = list(await asyncio.gather(*[sync_single(item) for item in items]))
 
     status = SyncStatus(
         jira="enabled" if jira_client and getattr(jira_client, "is_enabled", False) else "disabled",
