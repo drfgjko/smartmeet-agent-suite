@@ -618,7 +618,17 @@ async def run_offline_pipeline(
     # 【Checkpoint】持久化最终完整结果
     try:
         await _checkpoint.save_final(meeting_id, final_result)
+        # 成功保存最终结果后，清理掉冗余的中间过程文件
+        _checkpoint.cleanup_checkpoints(meeting_id)
     except Exception as e:
         logger.error(f"[ApplicationService] Failed to save final checkpoint: {e}")
+
+    # 清理临时工作目录（音视频切片、临时模型数据等）
+    try:
+        import shutil
+        shutil.rmtree(work_dir, ignore_errors=True)
+        logger.info(f"[ApplicationService] Cleaned up temporary work directory: {work_dir}")
+    except Exception as e:
+        logger.warning(f"[ApplicationService] Failed to clean up work directory: {e}")
 
     return final_result

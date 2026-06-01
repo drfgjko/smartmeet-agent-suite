@@ -63,25 +63,23 @@ class ReportRenderer:
         tex_content = ""
         pdf_generated = False
         
-        if self.llm_client:
-            try:
-                from services.document_engine.templates.latex_base import build_latex_prompt
-                prompt = build_latex_prompt(
-                    title=title or "SmartMeet 会议报告",
-                    duration_sec=0.0,
-                    uploader="SmartMeet",
-                    transcript=final_report_md,
-                )
-                
-                messages = [
-                    {"role": "system", "content": "You are an expert LaTeX typesetter. Output only valid LaTeX code without any markdown formatting or explanations."},
-                    {"role": "user", "content": prompt}
-                ]
-                
-                tex_content = await self.llm_client.chat(messages=messages, temperature=0.2, max_tokens=6000)
-                tex_content = re.sub(r"```[a-zA-Z]*\n(.*?)\n```", r"\1", tex_content, flags=re.DOTALL).strip()
-            except Exception as llm_err:
-                logger.error(f"[ReportRenderer] LLM LaTeX generation failed: {llm_err}")
+        try:
+            logger.info("[ReportRenderer] Generating LaTeX via pure Python parser...")
+            import time
+            from services.document_engine.templates.latex_base import LATEX_PREAMBLE, LATEX_POSTAMBLE
+            from services.document_engine.markdown_parser import MarkdownToLatexConverter
+            
+            date_str = time.strftime("%Y-%m-%d")
+            preamble = LATEX_PREAMBLE.replace("{title}", title or "SmartMeet 会议报告")
+            preamble = preamble.replace("{uploader}", "SmartMeet")
+            preamble = preamble.replace("{date_str}", date_str)
+            
+            parser = MarkdownToLatexConverter()
+            body_tex = parser.convert(final_report_md)
+            
+            tex_content = preamble + "\n" + body_tex + "\n" + LATEX_POSTAMBLE
+        except Exception as parse_err:
+            logger.error(f"[ReportRenderer] Python LaTeX parsing failed: {parse_err}")
 
         if tex_content:
             try:

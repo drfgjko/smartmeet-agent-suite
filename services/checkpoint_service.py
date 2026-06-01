@@ -106,3 +106,25 @@ class CheckpointService:
         )
         logger.info(f"[Checkpoint] 已保存最终结果: {path}")
         return path
+
+    def cleanup_checkpoints(self, meeting_id: str) -> None:
+        """
+        清理该会议的中间过程文件（checkpoint_*.json），仅保留 final_result.json 等最终产物。
+        
+        Args:
+            meeting_id: 会议唯一标识符
+        """
+        meeting_dir = self._meeting_dir(meeting_id)
+        if not meeting_dir.exists():
+            return
+            
+        count = 0
+        for file in meeting_dir.glob("checkpoint_*.json"):
+            try:
+                file.unlink()
+                count += 1
+            except Exception as e:
+                logger.warning(f"[Checkpoint] 无法删除过程文件 {file}: {e}")
+                
+        if count > 0:
+            logger.info(f"[Checkpoint] 已清理 {meeting_id} 的 {count} 个中间过程文件。")
