@@ -77,7 +77,7 @@ async def render_endpoint(request: RenderRequest):
     try:
         llm_client = create_llm_client()
         composer = ReportComposer(llm_client=llm_client)
-        renderer = ReportRenderer()
+        renderer = ReportRenderer(llm_client=llm_client)
         mindmap_service = MindMapService(llm_client=llm_client)
 
         md_path = None

@@ -16,15 +16,17 @@ from typing import Any
 
 from services import _find_project_root
 from services.media_engine import ExtractedFrame
-from services.document_engine.pdf_engine import LaTeXNoteBuilder, HTMLNoteBuilder
+from services.document_engine.pdf_engine import LaTeXNoteBuilder
+from services.document_engine.html_engine import HTMLNoteBuilder
 
 
 class ReportRenderer:
-    def __init__(self, reports_dir: Path | None = None):
+    def __init__(self, reports_dir: Path | None = None, llm_client: Any = None):
         if reports_dir is None:
             self.reports_dir = _find_project_root() / "reports"
         else:
             self.reports_dir = Path(reports_dir)
+        self.llm_client = llm_client
 
     async def render_report(
         self,
@@ -52,31 +54,56 @@ class ReportRenderer:
 
         pdf_path = self.reports_dir / f"{filename_base}.pdf"
         html_path = None
+        
+        # 清理可能存在的旧文件，防止报错时产生成功生成的误判
+        if pdf_path.exists():
+            pdf_path.unlink()
 
-        logger.info("[ReportRenderer] Attempting LaTeX XeLaTeX compilation to PDF...")
-        latex_builder = LaTeXNoteBuilder()
-        assets_tex = _find_project_root() / "assets" / "notes-template.tex"
-        template_path = assets_tex if assets_tex.exists() else None
+        logger.info("[ReportRenderer] Attempting direct LaTeX generation via LLM...")
+        tex_content = ""
+        pdf_generated = False
+        
+        if self.llm_client:
+            try:
+                from services.document_engine.templates.latex_base import build_latex_prompt
+                prompt = build_latex_prompt(
+                    title=title or "SmartMeet 会议报告",
+                    duration_sec=0.0,
+                    uploader="SmartMeet",
+                    transcript=final_report_md,
+                )
+                
+                messages = [
+                    {"role": "system", "content": "You are an expert LaTeX typesetter. Output only valid LaTeX code without any markdown formatting or explanations."},
+                    {"role": "user", "content": prompt}
+                ]
+                
+                tex_content = await self.llm_client.chat(messages=messages, temperature=0.2, max_tokens=6000)
+                tex_content = re.sub(r"```[a-zA-Z]*\n(.*?)\n```", r"\1", tex_content, flags=re.DOTALL).strip()
+            except Exception as llm_err:
+                logger.error(f"[ReportRenderer] LLM LaTeX generation failed: {llm_err}")
 
-        try:
-            tex_content = latex_builder.build_tex(
-                notes_md=final_report_md,
-                frames=kf_objects,
-                title=f"SmartMeet 会议报告",
-                meta={"Meeting ID": meeting_id},
-                template_path=template_path
-            )
+        if tex_content:
+            try:
+                latex_builder = LaTeXNoteBuilder()
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    tmp_dir_path = Path(tmpdir)
+                    tex_file = tmp_dir_path / f"{filename_base}.tex"
+                    tex_file.write_text(tex_content, encoding="utf-8")
 
-            with tempfile.TemporaryDirectory() as tmpdir:
-                tmp_dir_path = Path(tmpdir)
-                tex_file = tmp_dir_path / f"{filename_base}.tex"
-                tex_file.write_text(tex_content, encoding="utf-8")
+                    # 把关键帧图片拷贝到编译临时目录，统一命名为 image_1, image_2...
+                    if kf_objects:
+                        for idx, kf in enumerate(kf_objects, 1):
+                            if kf.path and Path(kf.path).exists():
+                                ext = Path(kf.path).suffix
+                                dest = tmp_dir_path / f"image_{idx}{ext}"
+                                shutil.copy(kf.path, dest)
 
-                compiled_pdf = await asyncio.to_thread(latex_builder.compile_pdf, tex_file, tmp_dir_path)
-                if compiled_pdf and compiled_pdf.exists():
-                    shutil.copy(compiled_pdf, pdf_path)
-        except Exception as tex_err:
-            logger.warning(f"[ReportRenderer] LaTeX compilation process encountered error: {tex_err}")
+                    compiled_pdf = await asyncio.to_thread(latex_builder.compile_pdf, tex_file, tmp_dir_path)
+                    if compiled_pdf and compiled_pdf.exists():
+                        shutil.copy(compiled_pdf, pdf_path)
+            except Exception as tex_err:
+                logger.warning(f"[ReportRenderer] LaTeX compilation process encountered error: {tex_err}")
 
         pdf_generated = pdf_path.exists() and pdf_path.stat().st_size > 5000
         if pdf_generated:
@@ -84,11 +111,12 @@ class ReportRenderer:
         else:
             logger.warning("[ReportRenderer] LaTeX PDF generation failed or not installed. Falling back to HTML-to-PDF...")
             try:
+                from services.document_engine.html_engine import HTMLNoteBuilder
                 html_builder = HTMLNoteBuilder()
                 html_content = html_builder.build_html(
                     notes_md=final_report_md,
                     frames=kf_objects,
-                    title="SmartMeet 会议报告",
+                    title=title or "SmartMeet 会议报告",
                     meta={"Meeting ID": meeting_id}
                 )
                 html_path = self.reports_dir / f"{filename_base}.html"
