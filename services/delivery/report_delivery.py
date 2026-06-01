@@ -36,6 +36,8 @@ class ReportDelivery:
         pdf_generated: bool,
         mindmap_path: Path | None,
         mindmap_generated: bool,
+        enable_feishu: bool = True,
+        enable_jira: bool = True,
     ) -> list[DeliveryResult]:
         """
         向各个渠道（飞书、Jira 等）分发报告和资产。
@@ -43,8 +45,8 @@ class ReportDelivery:
         """
         results = []
 
-        # 1. 飞书分发
-        if self.feishu and getattr(self.feishu, "is_enabled", False):
+        # 1. 飞书分发（受 enable_feishu 开关控制）
+        if enable_feishu and self.feishu and getattr(self.feishu, "is_enabled", False):
             feishu_result = DeliveryResult(channel="feishu")
             asset_errors: list[str] = []
             try:
@@ -99,9 +101,9 @@ class ReportDelivery:
                 feishu_result.error = str(e)
             results.append(feishu_result)
 
-        # 2. Jira 分发
+        # 2. Jira 分发（受 enable_jira 开关控制）
         jira_issues = [item.jira_issue_key for item in actions.action_items if item.jira_issue_key]
-        if self.jira and getattr(self.jira, "is_enabled", False) and jira_issues:
+        if enable_jira and self.jira and getattr(self.jira, "is_enabled", False) and jira_issues:
             jira_result = DeliveryResult(channel="jira", targets=jira_issues)
             try:
                 logger.info(f"[ReportDelivery] Uploading attachments to Jira issues: {jira_issues}")

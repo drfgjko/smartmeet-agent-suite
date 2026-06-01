@@ -11,7 +11,7 @@ from __future__ import annotations
 from datetime import datetime
 from loguru import logger
 
-from schemas import ActionItem, ActionOutput, SyncStatus
+from schemas import ActionItem, ActionOutput, SyncStatus, JobConfig
 from services.integrations.action_sync import sync_actions_to_external
 from ._utils import _state_value
 
@@ -71,12 +71,17 @@ class ActionAgent:
         if not transcript_text:
             logger.warning("[ActionAgent] No transcript text available")
             raise ValueError("transcript_text is required for ActionAgent")
+        
         action_items = await self._extract_actions(transcript_text)
+        job_config: JobConfig = _state_value(state, "job_config", JobConfig())
+
         synced_items, sync_status = await sync_actions_to_external(
             items=action_items,
             meeting_id=meeting_id,
             jira_client=self.jira,
             feishu_client=self.feishu,
+            enable_jira=job_config.enable_jira,
+            enable_feishu=job_config.enable_feishu,
         )
         output = ActionOutput(
             meeting_id=meeting_id,

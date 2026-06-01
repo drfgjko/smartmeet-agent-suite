@@ -21,12 +21,14 @@ def _find_project_root() -> Path:
 
 from .reporting import ReportComposer, ReportRenderer, MindMapService
 from .delivery import ReportDelivery
+from .checkpoint_service import CheckpointService
 
 __all__ = [
     "ReportComposer",
     "ReportRenderer",
     "MindMapService",
     "ReportDelivery",
+    "CheckpointService",
     "_find_project_root",
 ]
 

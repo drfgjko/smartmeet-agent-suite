@@ -22,6 +22,8 @@ async def sync_actions_to_external(
     meeting_id: str,
     jira_client: Any = None,
     feishu_client: Any = None,
+    enable_jira: bool = True,
+    enable_feishu: bool = True,
 ) -> tuple[list[ActionItem], SyncStatus]:
     """
     将行动项同步到外部系统（Jira / 飞书）。
@@ -33,7 +35,7 @@ async def sync_actions_to_external(
     synced: list[ActionItem] = []
 
     async def sync_single(item: ActionItem) -> ActionItem:
-        if jira_client and getattr(jira_client, "is_enabled", False):
+        if enable_jira and jira_client and getattr(jira_client, "is_enabled", False):
             jira_result = await asyncio.to_thread(
                 jira_client.create_issue,
                 summary=f"[会议待办] {item.task}",
@@ -45,7 +47,7 @@ async def sync_actions_to_external(
             )
             item.jira_issue_key = jira_result["key"]
 
-        if feishu_client and getattr(feishu_client, "is_enabled", False):
+        if enable_feishu and feishu_client and getattr(feishu_client, "is_enabled", False):
             due_ts = None
             if item.deadline:
                 try:
@@ -65,8 +67,8 @@ async def sync_actions_to_external(
     synced = list(await asyncio.gather(*[sync_single(item) for item in items]))
 
     status = SyncStatus(
-        jira="enabled" if jira_client and getattr(jira_client, "is_enabled", False) else "disabled",
-        feishu="enabled" if feishu_client and getattr(feishu_client, "is_enabled", False) else "disabled",
+        jira="enabled" if (enable_jira and jira_client and getattr(jira_client, "is_enabled", False)) else "disabled",
+        feishu="enabled" if (enable_feishu and feishu_client and getattr(feishu_client, "is_enabled", False)) else "disabled",
     )
 
     return synced, status

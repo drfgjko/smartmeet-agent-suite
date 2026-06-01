@@ -32,6 +32,11 @@ from services.media_engine import (
 )
 from workflows.meeting_workflow import run_meeting_pipeline
 from services.integrations import create_llm_client, FeishuClient, JiraClient
+from schemas import JobConfig
+from services.checkpoint_service import CheckpointService
+
+# 全局 Checkpoint 服务实例
+_checkpoint = CheckpointService()
 
 
 def _create_fallback_diarization(
@@ -301,6 +306,7 @@ async def run_offline_pipeline(
     denoise_level: int = 1,
     extract_frames: bool = True,
     progress_callback: ProgressCallback | None = None,
+    job_config: JobConfig | None = None,
 ) -> dict[str, Any]:
     """
     离线音视频处理主流水线（API 层调用的核心入口）。
@@ -430,7 +436,17 @@ async def run_offline_pipeline(
         else:
             diar_result = _create_fallback_diarization(transcript, language)
 
-        # 【新增加】阶段性保存产物（在此刻先将转录文本落盘，防止后续流程报错丢失数据）
+        # 【Checkpoint】阶段性保存产物（在此刻先将转录文本落盘，防止后续流程报错丢失数据）
+        try:
+            await _checkpoint.save(meeting_id, "transcribe", {
+                "transcript_text": diar_result.transcript_with_speakers,
+                "num_speakers": diar_result.num_speakers,
+                "speakers": diar_result.speakers,
+                "language": language if 'language' in dir() else "zh",
+            })
+        except Exception as tx_err:
+            logger.error(f"[ApplicationService] Failed to save transcribe checkpoint: {tx_err}")
+
         try:
             from services import _find_project_root
             reports_dir = _find_project_root() / "reports"
@@ -477,6 +493,10 @@ async def run_offline_pipeline(
     if progress_callback:
         await progress_callback("agent_running", {"message": "AI 会议协同助理正在并行分析（纪要生成、待办提取、效率评估、跟进）..."})
 
+    # 确保 job_config 有值
+    if job_config is None:
+        job_config = JobConfig()
+
     llm_client = create_llm_client()
     jira_client = JiraClient()
     feishu_client = FeishuClient()
@@ -489,6 +509,7 @@ async def run_offline_pipeline(
         llm_client=llm_client,
         jira_client=jira_client,
         feishu_client=feishu_client,
+        job_config=job_config,
     )
 
     # Step 9: 组装输出结果
@@ -567,7 +588,7 @@ async def run_offline_pipeline(
     title = summary_title or f"会议报告 - {meeting_id}"
 
     # Step 10: 组装完整响应结构
-    return {
+    final_result = {
         "meeting_id": meeting_id,
         "title": title,
         "status": final_state.get("status", "COMPLETED"),
@@ -593,3 +614,11 @@ async def run_offline_pipeline(
         ],
         "errors": final_state.get("errors", []),
     }
+
+    # 【Checkpoint】持久化最终完整结果
+    try:
+        await _checkpoint.save_final(meeting_id, final_result)
+    except Exception as e:
+        logger.error(f"[ApplicationService] Failed to save final checkpoint: {e}")
+
+    return final_result

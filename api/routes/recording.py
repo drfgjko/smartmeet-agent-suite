@@ -20,6 +20,7 @@ from fastapi.responses import StreamingResponse
 from loguru import logger
 
 from services.application_service import run_offline_pipeline
+from schemas import JobConfig
 
 router = APIRouter(prefix="/api/v1/recording", tags=["recording"])
 
@@ -95,9 +96,18 @@ async def process_recording_endpoint(
     num_speakers: int = Form(None),
     denoise_level: int = Form(1),
     extract_frames: bool = Form(True),
+    job_config: str = Form(None, description="JobConfig JSON 字符串，控制流程开关"),
 ):
-    """一键离线处理接口 (非流式)"""
+    """一键离线处理接口 (非流式)，支持 JobConfig 参数级流程控制"""
     meeting_id, actual_path = _resolve_input(file_id, file_path, url)
+
+    # 解析 JobConfig（不传或解析失败时使用全开默认值）
+    parsed_config = JobConfig()
+    if job_config:
+        try:
+            parsed_config = JobConfig.model_validate_json(job_config)
+        except Exception as e:
+            logger.warning(f"job_config 解析失败，使用默认值: {e}")
 
     try:
         result = await run_offline_pipeline(
@@ -108,6 +118,7 @@ async def process_recording_endpoint(
             num_speakers=num_speakers,
             denoise_level=denoise_level,
             extract_frames=extract_frames,
+            job_config=parsed_config,
         )
         return result
     except Exception as e:
@@ -123,9 +134,18 @@ async def process_recording_stream(
     num_speakers: int = Form(None),
     denoise_level: int = Form(1),
     extract_frames: bool = Form(True),
+    job_config: str = Form(None, description="JobConfig JSON 字符串，控制流程开关"),
 ):
-    """基于 Server-Sent Events (SSE) 的音视频流式处理接口"""
+    """基于 Server-Sent Events (SSE) 的音视频流式处理接口，支持 JobConfig 参数级流程控制"""
     meeting_id, actual_path = _resolve_input(file_id, file_path, url)
+
+    # 解析 JobConfig
+    parsed_config = JobConfig()
+    if job_config:
+        try:
+            parsed_config = JobConfig.model_validate_json(job_config)
+        except Exception as e:
+            logger.warning(f"job_config 解析失败，使用默认值: {e}")
 
     async def generate() -> Generator[str, None, None]:
         try:
@@ -146,6 +166,7 @@ async def process_recording_stream(
                         denoise_level=denoise_level,
                         extract_frames=extract_frames,
                         progress_callback=progress_callback,
+                        job_config=parsed_config,
                     )
                     await progress_callback("done", res)
                 except Exception as ex:

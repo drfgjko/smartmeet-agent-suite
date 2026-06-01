@@ -16,6 +16,7 @@ from .meeting_schemas import (
     DeliveryResult,
     FollowUpArtifacts,
 )
+from .job_config import JobConfig
 from .meeting_state import MeetingGraphState
 
 __all__ = [
@@ -30,5 +31,6 @@ __all__ = [
     "ReportAsset",
     "DeliveryResult",
     "FollowUpArtifacts",
+    "JobConfig",
     "MeetingGraphState",
 ]

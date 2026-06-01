@@ -28,7 +28,8 @@ def main(ctx):
 @click.option("--speakers", default=None, type=int, help="说话人数（不传则自动检测）")
 @click.option("--denoise", default=1, type=int, help="降噪级别（0-3）")
 @click.option("-o", "--output", default=None, help="结果保存目录")
-def process(files, context, speakers, denoise, output):
+@click.option("--config", default=None, help="JobConfig JSON 字符串或本地 JSON 文件路径")
+def process(files, context, speakers, denoise, output, config):
     console.print(Panel(
         f"[bold cyan]SmartMeet CLI[/bold cyan] - 录音处理客户端\n"
         f"文件: {', '.join(str(f) for f in files)}\n"
@@ -60,14 +61,16 @@ def process(files, context, speakers, denoise, output):
         context=context,
         speakers=speakers,
         denoise=denoise,
-        output=output
+        output=output,
+        config=config,
     )
 
 @main.command()
 @click.argument("url")
 @click.option("-c", "--context", default=None, help="内容描述或补充上下文")
 @click.option("-o", "--output", default=None, help="结果保存目录")
-def run(url, context, output):
+@click.option("--config", default=None, help="JobConfig JSON 字符串或本地 JSON 文件路径")
+def run(url, context, output, config):
     console.print(Panel(
         f"[bold cyan]SmartMeet CLI[/bold cyan] - 视频链接处理客户端\n"
         f"链接: {url}\n"
@@ -78,10 +81,11 @@ def run(url, context, output):
     _run_process_stream(
         url=url,
         context=context,
-        output=output
+        output=output,
+        config=config,
     )
 
-def _run_process_stream(file_id=None, url=None, context=None, speakers=None, denoise=1, output=None):
+def _run_process_stream(file_id=None, url=None, context=None, speakers=None, denoise=1, output=None, config=None):
     import time
     start_time = time.time()
     payload = {
@@ -95,6 +99,16 @@ def _run_process_stream(file_id=None, url=None, context=None, speakers=None, den
         payload["context"] = context
     if speakers is not None:
         payload["num_speakers"] = speakers
+
+    if config:
+        config_path = Path(config)
+        if config_path.exists() and config_path.is_file():
+            try:
+                payload["job_config"] = config_path.read_text(encoding="utf-8")
+            except Exception as e:
+                console.print(f"[yellow]无法读取配置文件 {config_path}: {e}[/yellow]")
+        else:
+            payload["job_config"] = config
 
     process_url = f"{API_BASE}/api/v1/recording/process/stream"
     

@@ -19,6 +19,8 @@ from fastapi.staticfiles import StaticFiles
 
 from api.routes.recording import router as recording_router
 from api.routes.websocket import router as ws_router
+from api.routes.analyze import router as analyze_router
+from api.routes.render import router as render_router
 
 _REPORTS_DIR = Path(__file__).resolve().parents[1] / "reports"
 _REPORTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -49,6 +51,8 @@ app.add_middleware(
 # 注册 API 路由
 app.include_router(recording_router)
 app.include_router(ws_router)
+app.include_router(analyze_router)
+app.include_router(render_router)
 app.mount("/reports", StaticFiles(directory=_REPORTS_DIR), name="reports")
 
 @app.get("/")
