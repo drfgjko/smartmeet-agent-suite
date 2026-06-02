@@ -65,7 +65,7 @@ class ReportDelivery:
                 # 上传并发送附件消息到飞书群聊
                 receive_id = getattr(self.feishu, "receive_id", "")
                 if receive_id:
-                    logger.info(f"[ReportDelivery] Feishu receive_id configured ({receive_id}). Uploading assets...")
+                    logger.info(f"[ReportDelivery] 已配置飞书 receive_id ({receive_id}). 正在上传资产...")
                     if pdf_generated and pdf_path:
                         pdf_key = await self.feishu.upload_file(pdf_path, file_type="pdf")
                         if pdf_key:
@@ -76,7 +76,7 @@ class ReportDelivery:
                                 logger.error("[ReportDelivery] Feishu PDF send failed")
                                 asset_errors.append("pdf_send_failed")
                         else:
-                            logger.error("[ReportDelivery] Feishu PDF upload failed")
+                            logger.error("[ReportDelivery] 飞书 PDF 上传失败")
                             asset_errors.append("pdf_upload_failed")
 
                     if mindmap_generated and mindmap_path:
@@ -89,7 +89,7 @@ class ReportDelivery:
                                 logger.error("[ReportDelivery] Feishu Mindmap send failed")
                                 asset_errors.append("mindmap_send_failed")
                         else:
-                            logger.error("[ReportDelivery] Feishu Mindmap upload failed")
+                            logger.error("[ReportDelivery] 飞书思维导图上传失败")
                             asset_errors.append("mindmap_upload_failed")
 
                 if asset_errors:

@@ -22,6 +22,7 @@ class JobConfig(BaseModel):
     """
 
     # ── Agent 节点开关 ──
+    enable_speaker_inference: bool = True  # 是否运行发言人推断 Agent
     enable_summary: bool = True       # 是否运行摘要 Agent
     enable_actions: bool = True       # 是否运行待办 Agent
     enable_insights: bool = True      # 是否运行洞察 Agent

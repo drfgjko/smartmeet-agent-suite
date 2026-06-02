@@ -14,6 +14,7 @@ from agents.summary_agent import SummaryAgent
 from agents.action_agent import ActionAgent
 from agents.insight_agent import InsightAgent
 from agents.followup_agent import FollowUpAgent
+from agents.speaker_inference_agent import SpeakerInferenceAgent
 from schemas import MeetingGraphState, JobConfig
 from services.media_engine import DiarizationResult, ExtractedFrame
 
@@ -23,8 +24,9 @@ _compiled_graph_cache: dict[str, Any] = {}
 def _get_cache_key(llm_client, jira_client, feishu_client, job_config: JobConfig) -> str:
     """缓存键：客户端实例 ID + JobConfig 的开关指纹"""
     config_fingerprint = (
-        f"{job_config.enable_summary}:{job_config.enable_actions}:{job_config.enable_insights}"
-        f":{job_config.any_followup_enabled}"
+        f"{job_config.enable_speaker_inference}:{job_config.enable_summary}:"
+        f"{job_config.enable_actions}:{job_config.enable_insights}:"
+        f"{job_config.any_followup_enabled}"
     )
     return f"{id(llm_client)}:{config_fingerprint}"
 
@@ -55,34 +57,46 @@ def build_meeting_graph(
 
     # 收集被启用的分析 Agent 节点名
     enabled_agents: list[str] = []
+    
+    # 确定后续分析节点的入口点
+    analysis_entry = START
+    if job_config.enable_speaker_inference:
+        speaker_agent = SpeakerInferenceAgent(llm_client=llm_client)
+        graph.add_node("speaker_inference", speaker_agent.process)
+        graph.add_edge(START, "speaker_inference")
+        analysis_entry = "speaker_inference"
 
     if job_config.enable_summary:
         summary_agent = SummaryAgent(llm_client=llm_client)
         graph.add_node("summary", summary_agent.process)
-        graph.add_edge(START, "summary")
+        graph.add_edge(analysis_entry, "summary")
         enabled_agents.append("summary")
 
     if job_config.enable_actions:
         action_agent = ActionAgent(llm_client=llm_client, jira_client=jira_client, feishu_client=feishu_client)
         graph.add_node("action", action_agent.process)
-        graph.add_edge(START, "action")
+        graph.add_edge(analysis_entry, "action")
         enabled_agents.append("action")
 
     if job_config.enable_insights:
         insight_agent = InsightAgent(llm_client=llm_client)
         graph.add_node("insight", insight_agent.process)
-        graph.add_edge(START, "insight")
+        graph.add_edge(analysis_entry, "insight")
         enabled_agents.append("insight")
 
-    # 若所有分析 Agent 都被关闭，添加一个直通空节点
-    if not enabled_agents:
+    # 若所有分析 Agent 都被关闭，且 speaker_inference 也未开启，或者只有 speaker_inference 开启但没后续
+    if not enabled_agents and analysis_entry == START:
         async def _passthrough(state: object) -> dict:
             return {}
         graph.add_node("passthrough", _passthrough)
         graph.add_edge(START, "passthrough")
         graph.add_edge("passthrough", END)
-        logger.warning("所有分析 Agent 均被关闭，图仅包含直通节点")
+        logger.warning("所有主分析 Agent 均被关闭，图仅包含直通节点")
         return graph
+        
+    if not enabled_agents and analysis_entry == "speaker_inference":
+        # 仅启用了 speaker_inference，没有后续分析 Agent，直接进入 FollowUp 判断
+        enabled_agents.append("speaker_inference")
 
     # 判断是否需要 FollowUp 节点
     if job_config.any_followup_enabled:
@@ -180,5 +194,5 @@ async def run_meeting_pipeline(
     if errors:
         logger.warning(f"Pipeline completed with errors: {errors}")
     else:
-        logger.info(f"Pipeline completed successfully for: {meeting_id}")
+        logger.info(f"流水线处理成功完成:: {meeting_id}")
     return final_state

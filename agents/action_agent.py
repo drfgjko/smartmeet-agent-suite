@@ -66,10 +66,10 @@ class ActionAgent:
 
     async def process(self, state: object) -> dict:
         meeting_id = _state_value(state, "meeting_id", "unknown")
-        logger.info(f"[ActionAgent] Processing meeting: {meeting_id}")
+        logger.info(f"[ActionAgent] 正在处理会议: {meeting_id}")
         transcript_text = _state_value(state, "transcript_text", "")
         if not transcript_text:
-            logger.warning("[ActionAgent] No transcript text available")
+            logger.warning("[ActionAgent] 缺少可用的转录文本")
             raise ValueError("transcript_text is required for ActionAgent")
         
         action_items = await self._extract_actions(transcript_text)
@@ -88,7 +88,7 @@ class ActionAgent:
             action_items=synced_items,
             sync_status=sync_status,
         )
-        logger.info(f"[ActionAgent] Extracted {len(synced_items)} action items")
+        logger.info(f"[ActionAgent] 共提取了 {len(synced_items)} 个待办事项")
         return {"actions": output}
 
     async def _extract_actions(self, transcript: str) -> list[ActionItem]:

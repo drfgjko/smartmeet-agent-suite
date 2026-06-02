@@ -60,7 +60,7 @@ class FollowUpAgent:
 
     async def process(self, state: object) -> dict:
         meeting_id = _state_value(state, "meeting_id", "unknown")
-        logger.info(f"[FollowUpAgent] Processing meeting: {meeting_id}")
+        logger.info(f"[FollowUpAgent] 正在处理会议: {meeting_id}")
 
         # 读取 JobConfig（不存在时使用全开默认值）
         job_config: JobConfig = _state_value(state, "job_config", JobConfig())
@@ -166,7 +166,7 @@ class FollowUpAgent:
         else:
             logger.info("[FollowUpAgent] 外部分发已跳过 (enable_delivery=False)")
 
-        logger.info(f"[FollowUpAgent] Follow-up completed")
+        logger.info(f"[FollowUpAgent] 后续处理完成")
         return {"followup": result, "errors": errors, "status": "COMPLETED"}
 
     @staticmethod

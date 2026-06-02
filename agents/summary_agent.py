@@ -62,13 +62,13 @@ class SummaryAgent:
 
     async def process(self, state: object) -> dict:
         meeting_id = _state_value(state, "meeting_id", "unknown")
-        logger.info(f"[SummaryAgent] Processing meeting: {meeting_id}")
+        logger.info(f"[SummaryAgent] 正在处理会议: {meeting_id}")
         transcript_text = _state_value(state, "transcript_text", "")
         if not transcript_text:
-            logger.warning("[SummaryAgent] No transcript text available")
+            logger.warning("[SummaryAgent] 缺少可用的转录文本")
             raise ValueError("transcript_text is required for SummaryAgent")
         summary = await self._generate_summary(transcript_text)
-        logger.info(f"[SummaryAgent] Summary generated: {summary.title}")
+        logger.info(f"[SummaryAgent] 会议纪要生成完毕: {summary.title}")
         return {"summary": summary}
 
     async def _generate_summary(self, transcript: str) -> SummaryOutput:

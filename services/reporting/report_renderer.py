@@ -50,7 +50,7 @@ class ReportRenderer:
         filename_base = f"{meeting_id}_{safe_title}" if safe_title else meeting_id
         md_path = self.reports_dir / f"{filename_base}.md"
         md_path.write_text(final_report_md, encoding="utf-8")
-        logger.info(f"[ReportRenderer] Markdown report saved at {md_path}")
+        logger.info(f"[ReportRenderer] Markdown 报告已保存至 {md_path}")
 
         pdf_path = self.reports_dir / f"{filename_base}.pdf"
         html_path = None
@@ -59,12 +59,12 @@ class ReportRenderer:
         if pdf_path.exists():
             pdf_path.unlink()
 
-        logger.info("[ReportRenderer] Attempting direct LaTeX generation via LLM...")
+        logger.info("[ReportRenderer] 正在尝试通过大模型直接生成 LaTeX...")
         tex_content = ""
         pdf_generated = False
         
         try:
-            logger.info("[ReportRenderer] Generating LaTeX via pure Python parser...")
+            logger.info("[ReportRenderer] 正在通过纯 Python 解析器生成 LaTeX...")
             import time
             from services.document_engine.templates.latex_base import LATEX_PREAMBLE, LATEX_POSTAMBLE
             from services.document_engine.markdown_parser import MarkdownToLatexConverter
@@ -79,7 +79,7 @@ class ReportRenderer:
             
             tex_content = preamble + "\n" + body_tex + "\n" + LATEX_POSTAMBLE
         except Exception as parse_err:
-            logger.error(f"[ReportRenderer] Python LaTeX parsing failed: {parse_err}")
+            logger.error(f"[ReportRenderer] Python LaTeX 解析失败: {parse_err}")
 
         if tex_content:
             try:
@@ -101,13 +101,13 @@ class ReportRenderer:
                     if compiled_pdf and compiled_pdf.exists():
                         shutil.copy(compiled_pdf, pdf_path)
             except Exception as tex_err:
-                logger.warning(f"[ReportRenderer] LaTeX compilation process encountered error: {tex_err}")
+                logger.warning(f"[ReportRenderer] LaTeX 编译过程遇到错误: {tex_err}")
 
         pdf_generated = pdf_path.exists() and pdf_path.stat().st_size > 5000
         if pdf_generated:
-            logger.info(f"[ReportRenderer] LaTeX PDF generation succeeded at {pdf_path}")
+            logger.info(f"[ReportRenderer] LaTeX PDF 讲义生成成功，保存至 {pdf_path}")
         else:
-            logger.warning("[ReportRenderer] LaTeX PDF generation failed or not installed. Falling back to HTML-to-PDF...")
+            logger.warning("[ReportRenderer] LaTeX PDF 生成失败或未安装引擎。回退到 HTML-to-PDF 降级模式...")
             try:
                 from services.document_engine.html_engine import HTMLNoteBuilder
                 html_builder = HTMLNoteBuilder()
@@ -119,15 +119,15 @@ class ReportRenderer:
                 )
                 html_path = self.reports_dir / f"{filename_base}.html"
                 html_path.write_text(html_content, encoding="utf-8")
-                logger.info(f"[ReportRenderer] Fallback HTML report saved at {html_path}")
+                logger.info(f"[ReportRenderer] 降级模式 HTML 报告已保存至 {html_path}")
 
                 success = HTMLNoteBuilder.html_to_pdf(html_path, pdf_path)
                 if success:
                     pdf_generated = True
-                    logger.info(f"[ReportRenderer] Fallback HTML to PDF generation succeeded at {pdf_path}")
+                    logger.info(f"[ReportRenderer] 降级模式 HTML 转 PDF 成功，保存至 {pdf_path}")
                 else:
-                    logger.error("[ReportRenderer] Fallback HTML to PDF generation failed: PDF missing or too small")
+                    logger.error("[ReportRenderer] 降级模式 HTML 转 PDF 失败: 文件丢失或体积过小")
             except Exception as html_err:
-                logger.error(f"[ReportRenderer] Error during HTML-to-PDF fallback: {html_err}")
+                logger.error(f"[ReportRenderer] HTML-to-PDF 降级模式执行时出错: {html_err}")
 
         return md_path, pdf_path, html_path, pdf_generated

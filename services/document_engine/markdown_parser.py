@@ -33,8 +33,13 @@ class MarkdownToLatexConverter:
             # 使用 LaTeX 的环境替换
             return f"\n\\begin{{{latex_env}}}{{{title}}}\n{content}\n\\end{{{latex_env}}}\n"
 
-        # 匹配 {IMPORTANT}文本{/IMPORTANT} 跨多行
-        md_content = re.sub(r'\{([A-Z]+)\}(.*?)\{/\1\}', replace_box, md_content, flags=re.DOTALL)
+        # 匹配 {IMPORTANT}文本{/IMPORTANT} 跨多行，兼容没有闭合标签的情况（遇到空行或文件末尾截断）
+        md_content = re.sub(
+            r'\{([A-Z]+)\}(.*?)(?:\{/\1\}|(?=\n\s*\n|\Z))', 
+            replace_box, 
+            md_content, 
+            flags=re.DOTALL
+        )
         
         lines = md_content.split('\n')
         tex_lines = []

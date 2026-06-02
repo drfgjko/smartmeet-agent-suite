@@ -576,7 +576,7 @@ async def run_offline_pipeline(
         else:
             # 如果输入本身就是 transcript 文件，则不再写入套娃复印本，直接沿用原路径
             output_files["transcript"] = str(actual_path)
-            logger.info(f"[ApplicationService] Reused original transcript text from {actual_path}")
+            logger.info(f"[ApplicationService] 复用了原始转录文本: {actual_path}")
             
     except Exception as tx_err:
         logger.error(f"[ApplicationService] Failed to finalize transcript text file: {tx_err}")
@@ -627,7 +627,7 @@ async def run_offline_pipeline(
     try:
         import shutil
         shutil.rmtree(work_dir, ignore_errors=True)
-        logger.info(f"[ApplicationService] Cleaned up temporary work directory: {work_dir}")
+        logger.info(f"[ApplicationService] 已清理临时工作目录: {work_dir}")
     except Exception as e:
         logger.warning(f"[ApplicationService] Failed to clean up work directory: {e}")
 

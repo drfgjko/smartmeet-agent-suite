@@ -75,7 +75,7 @@ class FeishuClient:
         if success:
             logger.info(f"Feishu webhook message sent: {title}")
         else:
-            logger.error(f"Feishu webhook failed: {data}")
+            logger.error(f"飞书 Webhook 调用失败: {data}")
         return success
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))
@@ -129,7 +129,7 @@ class FeishuClient:
         """
         token = await self._get_tenant_token()
         if not token:
-            logger.warning("Feishu token is not available, skipping upload")
+            logger.warning("未配置飞书 Token，跳过文件上传")
             return ""
         
         path = Path(file_path)

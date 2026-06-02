@@ -41,13 +41,13 @@ class MindMapService:
         mindmap_generated = False
 
         try:
-            logger.info("[MindMapService] Generating Mermaid mindmap...")
+            logger.info("[MindMapService] 正在生成 Mermaid 思维导图...")
             mindmap_pipeline = MindMapPipeline(llm_client=self.llm)
             await mindmap_pipeline.async_save_mindmap(final_report_md, mindmap_path)
             mindmap_generated = mindmap_path.exists()
             if mindmap_generated:
-                logger.info(f"[MindMapService] Mindmap saved at {mindmap_path}")
+                logger.info(f"[MindMapService] 思维导图已保存至 {mindmap_path}")
         except Exception as mm_err:
-            logger.error(f"[MindMapService] Mindmap generation failed: {mm_err}")
+            logger.error(f"[MindMapService] 思维导图生成失败: {mm_err}")
 
         return mindmap_path, mindmap_generated

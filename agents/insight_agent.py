@@ -58,11 +58,11 @@ class InsightAgent:
 
     async def process(self, state: object) -> dict:
         meeting_id = _state_value(state, "meeting_id", "unknown")
-        logger.info(f"[InsightAgent] Processing meeting: {meeting_id}")
+        logger.info(f"[InsightAgent] 正在处理会议: {meeting_id}")
         transcript = _state_value(state, "transcript", None)
         transcript_text = _state_value(state, "transcript_text", "")
         if not transcript_text:
-            logger.warning("[InsightAgent] No transcript text available")
+            logger.warning("[InsightAgent] 缺少可用的转录文本")
             raise ValueError("transcript_text is required for InsightAgent")
         speaker_stats = self._compute_speaker_stats(transcript)
         if speaker_stats:
@@ -83,7 +83,7 @@ class InsightAgent:
             highlights=llm_insights.get("highlights", []),
             suggestions=llm_insights.get("suggestions", []),
         )
-        logger.info(f"[InsightAgent] Analysis complete: sentiment={output.overall_sentiment}, efficiency={output.efficiency_score:.1f}")
+        logger.info(f"[InsightAgent] 行为分析完成: 情绪={output.overall_sentiment}, 效率评分={output.efficiency_score:.1f}")
         return {"insights": output}
 
     @staticmethod

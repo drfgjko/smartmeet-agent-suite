@@ -142,7 +142,16 @@ def _run_process_stream(file_id=None, url=None, context=None, speakers=None, den
                         elif stage == "error":
                             raise Exception(ev.get("message", "未知错误"))
                         else:
-                            progress.update(task, description=f"[{stage}] {msg}")
+                            stage_map = {
+                                "started": "启动",
+                                "preprocess": "媒体预处理",
+                                "transcribe": "语音转录",
+                                "diarize": "角色识别",
+                                "keyframes": "关键帧",
+                                "agent_running": "智能分析"
+                            }
+                            cn_stage = stage_map.get(stage, stage)
+                            progress.update(task, description=f"[[cyan]{cn_stage}[/cyan]] {msg}")
 
             if not content:
                 raise Exception("流水线完成但未返回任何内容")
@@ -171,21 +180,45 @@ def _run_process_stream(file_id=None, url=None, context=None, speakers=None, den
                 out_path = Path(output)
                 out_path.mkdir(parents=True, exist_ok=True)
 
-                md_file = out_path / f"{meeting_id}.md"
+                # 使用服务端返回的原始文件名，这样能保留标题和区分 mindmap
+                title = ev.get("title", "")
+                import re
+                safe_title = re.sub(r'[^\w\u4e00-\u9fa5\-]', '_', title).strip().strip("_") if title else ""
+                safe_title = safe_title[:50].strip()
+                filename_base = f"{meeting_id}_{safe_title}" if safe_title else meeting_id
+
+                md_file = out_path / f"{filename_base}.md"
                 md_file.write_text(content, encoding="utf-8")
                 console.print(f"[green]已保存 Markdown 报告至: {md_file}[/green]")
 
+                fmt_map = {
+                    "pdf": "PDF 讲义",
+                    "html": "HTML 网页",
+                    "mindmap": "思维导图",
+                    "markdown": "Markdown 文档",
+                    "transcript": "转录文本"
+                }
                 for fmt, src_path_str in output_files.items():
                     if fmt != "markdown" and src_path_str:
                         src_path = Path(src_path_str)
                         if src_path.exists():
-                            dst_path = out_path / f"{meeting_id}{src_path.suffix}"
+                            # 保留源文件的名称（源文件名已由服务端妥善处理好）
+                            dst_path = out_path / src_path.name
                             shutil.copy(src_path, dst_path)
-                            console.print(f"[green]已保存 {fmt} 资产至: {dst_path}[/green]")
+                            cn_fmt = fmt_map.get(fmt, fmt)
+                            console.print(f"[green]已保存 {cn_fmt} 资产至: {dst_path}[/green]")
             else:
                 console.print("\n[bold]输出路径（服务端）:[/bold]")
+                fmt_map = {
+                    "pdf": "PDF 讲义",
+                    "html": "HTML 网页",
+                    "mindmap": "思维导图",
+                    "markdown": "Markdown 文档",
+                    "transcript": "转录文本"
+                }
                 for fmt, path in output_files.items():
-                    console.print(f"  [{fmt}] {path}")
+                    cn_fmt = fmt_map.get(fmt, fmt)
+                    console.print(f"  [{cn_fmt}] {path}")
 
         except Exception as e:
             progress.update(task, description=f"[red]错误: {e}[/red]")

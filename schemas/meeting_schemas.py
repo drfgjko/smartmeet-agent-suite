@@ -12,6 +12,17 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 
+# ─── SpeakerInferenceAgent 内部契约 ──────────────────────────────
+
+class SpeakerMapItem(BaseModel):
+    original_label: str = Field(description="原始发言人标签，如 'Speaker 1'")
+    inferred_name: str = Field(description="推断出的真实姓名，如 '张三'。如果无法推断，则与原标签相同。")
+
+
+class SpeakerMapping(BaseModel):
+    mappings: list[SpeakerMapItem] = Field(default_factory=list, description="发言人映射关系列表")
+
+
 # ─── SummaryAgent 输出契约 ───────────────────────────────────────
 
 class TopicDetail(BaseModel):

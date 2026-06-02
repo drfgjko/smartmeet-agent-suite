@@ -32,6 +32,7 @@ LAYOUT_SYSTEM_PROMPT = """你是一位顶级的知识创作者和学术讲义编
    {IMPORTANT}这里提炼核心思想、方法论或最终定论{/IMPORTANT}
    {KNOWLEDGE}这里补充行业背景、前置概念或术语科普{/KNOWLEDGE}
    {WARNING}这里指出常见的误区、技术瓶颈或落地风险{/WARNING}
+   （注意：必须成对使用闭合标签，绝不可省略 {/IMPORTANT} 等后缀！）
 5. 输出必须是合法的纯 Markdown 文本，并给文章起一个响亮的主标题（#开头）。
 """
 
@@ -91,7 +92,7 @@ class ReportComposer:
 
         # 4. LLM 智能重塑为连续讲义（只要有 LLM 就必须触发）
         if self.llm:
-            logger.info("[ReportComposer] Regenerating structural data into cohesive lecture notes...")
+            logger.info("[ReportComposer] 正在使用大模型将结构化数据重组为连贯的长文讲义...")
             kf_desc_items = []
             if kf_objects:
                 for idx, kf in enumerate(kf_objects, 1):
@@ -105,6 +106,16 @@ class ReportComposer:
                 {"role": "user", "content": LAYOUT_USER_PROMPT.format(keyframes_desc=keyframes_desc, reference_data=reference_data)}
             ]
             final_report_md = await self.llm.chat(messages=messages, temperature=0.4, max_tokens=6000)
-            logger.info("[ReportComposer] Cohesive lecture note generated successfully.")
+            
+            # 剥除可能的大模型代码块包裹
+            final_report_md = final_report_md.strip()
+            if final_report_md.startswith("```markdown"):
+                final_report_md = final_report_md[11:].strip()
+            elif final_report_md.startswith("```"):
+                final_report_md = final_report_md[3:].strip()
+            if final_report_md.endswith("```"):
+                final_report_md = final_report_md[:-3].strip()
+                
+            logger.info("[ReportComposer] 连贯的长文讲义生成成功。")
 
         return final_report_md, kf_objects
