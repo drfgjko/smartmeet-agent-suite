@@ -14,7 +14,7 @@ from pathlib import Path
 from loguru import logger
 from typing import Any
 
-from services import _find_project_root
+from utils import find_project_root
 from services.media_engine import ExtractedFrame
 from services.document_engine.pdf_engine import LaTeXNoteBuilder
 from services.document_engine.html_engine import HTMLNoteBuilder
@@ -23,7 +23,7 @@ from services.document_engine.html_engine import HTMLNoteBuilder
 class ReportRenderer:
     def __init__(self, reports_dir: Path | None = None, llm_client: Any = None):
         if reports_dir is None:
-            self.reports_dir = _find_project_root() / "reports"
+            self.reports_dir = find_project_root() / "reports"
         else:
             self.reports_dir = Path(reports_dir)
         self.llm_client = llm_client

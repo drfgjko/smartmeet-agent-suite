@@ -55,7 +55,7 @@ def extract_keyframes(
     try:
         frames = _extract_with_scenedetect(video_path, output_dir, max_frames * 2, threshold)
     except (ImportError, Exception) as e:
-        logger.warning(f"SceneDetect extraction failed, falling back: {e}")
+        logger.warning(f"SceneDetect 提取关键帧失败，正在执行降级兜底: {e}")
         frames = []
 
     if duration > 0:
@@ -222,11 +222,11 @@ def _get_duration(video_path: Path) -> float:
         "-of", "default=noprint_wrappers=1:nokey=1",
         str(video_path),
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+    result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30)
     try:
         return float(result.stdout.strip())
     except (ValueError, AttributeError) as e:
-        logger.warning(f"Failed to parse duration for {video_path}: {e}")
+        logger.warning(f"解析 {video_path} 的时长失败: {e}")
         return 0.0
 
 def align_frames_to_subtitles(

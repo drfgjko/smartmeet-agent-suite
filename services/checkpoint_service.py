@@ -34,8 +34,8 @@ class CheckpointService:
 
     def __init__(self, base_dir: Path | None = None):
         if base_dir is None:
-            from services import _find_project_root
-            base_dir = _find_project_root() / "reports"
+            from utils import find_project_root
+            base_dir = find_project_root() / "reports"
         self._base_dir = base_dir
 
     def _meeting_dir(self, meeting_id: str) -> Path:

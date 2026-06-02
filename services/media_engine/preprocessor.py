@@ -54,7 +54,7 @@ def get_duration(file_path: Path) -> float:
                 "-of", "default=noprint_wrappers=1:nokey=1",
                 str(file_path),
             ],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30,
         )
         return float(result.stdout.strip())
     except Exception:
@@ -76,7 +76,7 @@ def extract_audio(
     if mono:
         cmd += ["-ac", "1"]
     cmd.append(str(output_path))
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+    result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=600)
     if result.returncode != 0:
         raise RuntimeError(f"Audio extraction failed: {result.stderr[:500]}")
     if not output_path.exists():
@@ -127,7 +127,7 @@ def _merge_concat_demuxer(
         "ffmpeg", "-y", "-f", "concat", "-safe", "0",
         "-i", str(list_file), "-c", "copy", str(output_path),
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+    result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=600)
     list_file.unlink(missing_ok=True)
 
     if result.returncode != 0:
@@ -157,7 +157,7 @@ def _merge_concat_filter(
         "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1",
         str(output_path),
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+    result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=600)
     if result.returncode != 0:
         raise RuntimeError(f"Merge (filter) failed: {result.stderr[:500]}")
     return output_path, segments
@@ -238,7 +238,7 @@ def _denoise_ffmpeg_fallback(
         "-af", af,
         str(output_path),
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+    result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
     if result.returncode != 0 or not output_path.exists():
         return audio_path
     return output_path

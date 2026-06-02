@@ -11,12 +11,6 @@ Smartmeet Core Services
 from pathlib import Path
 
 
-def _find_project_root() -> Path:
-    current = Path(__file__).resolve()
-    for parent in current.parents:
-        if (parent / "pyproject.toml").exists():
-            return parent
-    return current.parents[2]
 
 
 from .reporting import ReportComposer, ReportRenderer, MindMapService
@@ -29,6 +23,5 @@ __all__ = [
     "MindMapService",
     "ReportDelivery",
     "CheckpointService",
-    "_find_project_root",
 ]
 

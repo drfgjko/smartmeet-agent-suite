@@ -98,7 +98,7 @@ class ReportComposer:
                 for idx, kf in enumerate(kf_objects, 1):
                     ts = kf.timestamp_str
                     sub = kf.subtitle_text or "无画面字幕/视频帧"
-                    kf_desc_items.append(f"Fig.{idx} at {ts}: {sub}")
+                    kf_desc_items.append(f"{{IMAGE:{idx}}} at {ts}: {sub}")
             keyframes_desc = "\n".join(kf_desc_items) if kf_desc_items else "（本录音无视频关键帧，纯音频生成）"
 
             messages = [

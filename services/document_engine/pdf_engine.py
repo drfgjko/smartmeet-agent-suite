@@ -22,8 +22,8 @@ class LaTeXNoteBuilder:
         pdf_path = tex_path.with_suffix(".pdf")
         
         # 1. 尝试使用 Tectonic (从系统 PATH 或项目根目录查找)
-        from services import _find_project_root
-        local_tectonic = _find_project_root() / "tectonic.exe"
+        from utils import find_project_root
+        local_tectonic = find_project_root() / "tectonic.exe"
         tectonic = str(local_tectonic) if local_tectonic.exists() else shutil.which("tectonic")
         
         if tectonic:

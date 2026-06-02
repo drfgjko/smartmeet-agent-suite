@@ -11,7 +11,7 @@ from pathlib import Path
 from loguru import logger
 from typing import Any
 
-from services import _find_project_root
+from utils import find_project_root
 from services.document_engine.mindmap_engine import MindMapPipeline
 
 
@@ -19,7 +19,7 @@ class MindMapService:
     def __init__(self, llm_client: Any = None, reports_dir: Path | None = None):
         self.llm = llm_client
         if reports_dir is None:
-            self.reports_dir = _find_project_root() / "reports"
+            self.reports_dir = find_project_root() / "reports"
         else:
             self.reports_dir = Path(reports_dir)
 

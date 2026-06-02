@@ -76,6 +76,9 @@ def _base_cmd(url: str = "") -> list[str]:
             )
             cmd += ["--cookies", str(tmp)]
 
+    # 设置标准的浏览器 User-Agent 伪装，避免触发 B 站等平台的自动化爬虫拦截风控 (如 HTTP 412 错误)
+    cmd += ["--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"]
+
     return cmd
 
 def get_video_info(url: str) -> VideoMeta:
@@ -85,14 +88,14 @@ def get_video_info(url: str) -> VideoMeta:
         "--no-download",
         url,
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+    result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
     if result.returncode != 0:
         err_msg = (result.stderr or result.stdout or '')[-1000:]
-        raise RuntimeError(f"yt-dlp info failed: {err_msg}")
+        raise RuntimeError(f"获取媒体元数据失败 (yt-dlp info 失败): {err_msg}")
 
     lines = [l for l in result.stdout.strip().split("\n") if l.strip()]
     if not lines:
-        raise RuntimeError("yt-dlp returned no data")
+        raise RuntimeError("媒体下载引擎未返回任何数据")
 
     entries = []
     first = json.loads(lines[0])
@@ -133,7 +136,7 @@ def download_subtitles(
         "-o", str(output_dir / "%(title)s.%(ext)s"),
         url,
     ]
-    subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+    subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
     return list(output_dir.glob("*.srt"))
 
 def download_audio(
@@ -151,13 +154,13 @@ def download_audio(
     ]
     result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=600)
     if result.returncode != 0:
-        err_msg = f"RETURN={result.returncode} | STDERR={(result.stderr or '').strip()} | STDOUT={(result.stdout or '')[-1000:].strip()}"
-        raise RuntimeError(f"Audio download failed: {err_msg}")
+        err_msg = f"返回值={result.returncode} | 错误输出={(result.stderr or '').strip()} | 标准输出={(result.stdout or '')[-1000:].strip()}"
+        raise RuntimeError(f"音频下载失败: {err_msg}")
 
     wavs = list(output_dir.glob("*.wav"))
     if wavs:
         return wavs[0]
-    raise FileNotFoundError("No WAV file produced")
+    raise FileNotFoundError("未生成有效的 WAV 音频文件")
 
 def download_video(
     url: str,
@@ -174,14 +177,14 @@ def download_video(
     ]
     result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=1800)
     if result.returncode != 0:
-        err_msg = f"RETURN={result.returncode} | STDERR={(result.stderr or '').strip()} | STDOUT={(result.stdout or '')[-1000:].strip()}"
-        raise RuntimeError(f"Video download failed: {err_msg}")
+        err_msg = f"返回值={result.returncode} | 错误输出={(result.stderr or '').strip()} | 标准输出={(result.stdout or '')[-1000:].strip()}"
+        raise RuntimeError(f"视频下载失败: {err_msg}")
 
     for ext in ("mp4", "mkv", "webm", "flv"):
         vids = list(output_dir.glob(f"*.{ext}"))
         if vids:
             return vids[0]
-    raise FileNotFoundError("No video file produced")
+    raise FileNotFoundError("未生成任何合法的视频文件")
 
 def download_thumbnail(
     url: str,
@@ -195,7 +198,7 @@ def download_thumbnail(
         "-o", str(output_dir / "thumbnail"),
         url,
     ]
-    subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+    subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
     for ext in ("jpg", "png", "webp"):
         thumbs = list(output_dir.glob(f"thumbnail*.{ext}"))
         if thumbs:
@@ -208,7 +211,7 @@ def list_playlist_entries(url: str) -> list[dict]:
         "--dump-json",
         url,
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+    result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
     entries = []
     for line in result.stdout.strip().split("\n"):
         if line.strip():

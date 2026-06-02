@@ -19,7 +19,7 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile, Background
 from fastapi.responses import StreamingResponse
 from loguru import logger
 
-from services.application_service import run_offline_pipeline
+from services.pipeline import run_offline_pipeline
 from schemas import JobConfig
 from schemas.task_schema import TaskCreateResponse
 from services.task_queue import task_queue

@@ -11,6 +11,19 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
+from dotenv import load_dotenv
+
+# 加载 .env 配置文件
+load_dotenv(dotenv_path=Path(__file__).resolve().parents[1] / ".env")
+
+# 强制将标准输出/错误重构为 UTF-8 编码，防止 Windows GBK 终端环境或重定向时发生乱码/崩溃
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 console = Console()
 
 API_BASE = os.environ.get("SMARTMEET_API", "http://127.0.0.1:8000")

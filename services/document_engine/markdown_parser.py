@@ -109,8 +109,8 @@ class MarkdownToLatexConverter:
             # 处理非列表内容
             close_lists()
             
-            # 图片匹配 {IMAGE:N}
-            img_match = re.match(r'\{IMAGE:(\d+)\}', line)
+            # 图片匹配 {IMAGE:N}，放宽正则以兼容大模型可能的 ![]({IMAGE:1}) 或 如图{IMAGE:1} 包装
+            img_match = re.search(r'\{IMAGE:(\d+)\}', line)
             if img_match:
                 idx = img_match.group(1)
                 tex_lines.append("\\begin{figure}[H]")

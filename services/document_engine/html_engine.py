@@ -13,12 +13,12 @@ import subprocess
 from pathlib import Path
 from loguru import logger
 
-from services import _find_project_root
+from utils import find_project_root
 from services.media_engine import ExtractedFrame
 
 class HTMLNoteBuilder:
     def __init__(self):
-        css_path = _find_project_root() / "assets" / "style.css"
+        css_path = find_project_root() / "assets" / "style.css"
         if not css_path.exists():
             # Fallback inline CSS if file not found
             css = "body { font-family: sans-serif; max-width: 800px; margin: 0 auto; padding: 2rem; }"

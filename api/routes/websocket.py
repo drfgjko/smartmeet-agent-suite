@@ -12,7 +12,7 @@ import json
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from loguru import logger
 
-from services.application_service import emit_agent_events, process_audio_capture
+from services.pipeline import emit_agent_events, process_audio_capture
 from services.media_engine import DiarizationResult, DiarizedSegment
 from workflows.meeting_workflow import run_meeting_pipeline
 
