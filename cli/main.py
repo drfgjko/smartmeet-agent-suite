@@ -237,3 +237,6 @@ def _run_process_stream(file_id=None, url=None, context=None, speakers=None, den
             progress.update(task, description=f"[red]错误: {e}[/red]")
             console.print(f"\n[red]流水线处理失败:[/red] {e}")
             sys.exit(1)
+
+if __name__ == "__main__":
+    main()

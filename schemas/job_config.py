@@ -36,6 +36,14 @@ class JobConfig(BaseModel):
     enable_feishu: bool = True         # 是否推送飞书（受限于 .env 中是否配置凭证）
     enable_jira: bool = True           # 是否同步 Jira
 
+    # ── 自定义凭证 (供前端动态传入) ──
+    feishu_app_id: str | None = None
+    feishu_app_secret: str | None = None
+    feishu_webhook_url: str | None = None
+    jira_server: str | None = None
+    jira_email: str | None = None
+    jira_api_token: str | None = None
+
     # ── 通用 Webhook ──
     webhook_urls: list[str] = Field(
         default_factory=list,

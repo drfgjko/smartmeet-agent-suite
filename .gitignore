@@ -61,3 +61,4 @@ CODE_REVIEW_MODULE_INDEPENDENCE.md
 ROADMAP.md
 *.db
 *.sqlite3
+/tmp_workspace/*

@@ -42,6 +42,7 @@ class FunASREngine(ASREngine):
                 vad_model="fsmn-vad",
                 punc_model="ct-punc",
                 spk_model="cam++",
+                disable_update=True,
             )
         return self._pipeline
 
@@ -111,7 +112,7 @@ class SenseVoiceEngine(ASREngine):
     def _get_model(self):
         if self._model is None:
             from funasr import AutoModel
-            self._model = AutoModel(model="iic/SenseVoiceSmall")
+            self._model = AutoModel(model="iic/SenseVoiceSmall", disable_update=True)
         return self._model
 
     def transcribe(self, audio_path: Path, language: str = "zh") -> SubtitleResult:

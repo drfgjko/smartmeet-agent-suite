@@ -39,7 +39,8 @@ class ReportRenderer:
         进行 Markdown 写入以及 LaTeX PDF 生成。
         返回 (md_path, pdf_path, html_path, pdf_generated)
         """
-        self.reports_dir.mkdir(parents=True, exist_ok=True)
+        target_dir = self.reports_dir / meeting_id
+        target_dir.mkdir(parents=True, exist_ok=True)
 
         import re
         safe_title = ""
@@ -48,11 +49,11 @@ class ReportRenderer:
             safe_title = safe_title[:50].strip()
 
         filename_base = f"{meeting_id}_{safe_title}" if safe_title else meeting_id
-        md_path = self.reports_dir / f"{filename_base}.md"
+        md_path = target_dir / f"{filename_base}.md"
         md_path.write_text(final_report_md, encoding="utf-8")
         logger.info(f"[ReportRenderer] Markdown 报告已保存至 {md_path}")
 
-        pdf_path = self.reports_dir / f"{filename_base}.pdf"
+        pdf_path = target_dir / f"{filename_base}.pdf"
         html_path = None
         
         # 清理可能存在的旧文件，防止报错时产生成功生成的误判
@@ -117,7 +118,7 @@ class ReportRenderer:
                     title=title or "SmartMeet 会议报告",
                     meta={"Meeting ID": meeting_id}
                 )
-                html_path = self.reports_dir / f"{filename_base}.html"
+                html_path = target_dir / f"{filename_base}.html"
                 html_path.write_text(html_content, encoding="utf-8")
                 logger.info(f"[ReportRenderer] 降级模式 HTML 报告已保存至 {html_path}")
 

@@ -183,7 +183,7 @@ async def run_offline_pipeline(
                 logger.error(f"[ApplicationService] 保存转录检查点失败: {tx_err}")
 
             try:
-                reports_dir = find_project_root() / "reports"
+                reports_dir = find_project_root() / "reports" / meeting_id
                 reports_dir.mkdir(parents=True, exist_ok=True)
                 intermediate_tx_path = reports_dir / f"{meeting_id}_transcript.txt"
                 intermediate_tx_path.write_text(diar_result.transcript_with_speakers, encoding="utf-8")
@@ -199,13 +199,24 @@ async def run_offline_pipeline(
                 frames_dir = work_dir / "keyframes"
                 frames_dir.mkdir(exist_ok=True)
                 try:
-                    # 提取关键帧后，将每帧与最近的字幕段落对齐（用于报告中插入截图）
-                    extracted_frames = await asyncio.to_thread(
+                    import time
+                    kf_start_time = time.time()
+                    kf_task = asyncio.create_task(asyncio.to_thread(
                         extract_keyframes,
                         video_path=pre_result.video_path,
                         output_dir=frames_dir,
                         max_frames=10,
-                    )
+                    ))
+                    while not kf_task.done():
+                        try:
+                            await asyncio.wait_for(asyncio.shield(kf_task), timeout=5.0)
+                        except asyncio.TimeoutError:
+                            elapsed = int(time.time() - kf_start_time)
+                            if progress_callback:
+                                await progress_callback("keyframes", {"message": f"正在提取关键帧（仅视频支持）... (已耗时 {elapsed}s，大文件请耐心等待)"})
+                    
+                    extracted_frames = kf_task.result()
+                    # 提取关键帧后，将每帧与最近的字幕段落对齐（用于报告中插入截图）
                     frames_result = align_frames_to_subtitles(extracted_frames, transcript)
                 except Exception as frame_err:
                     # 关键帧提取失败不影响主流程，仅记录日志
@@ -232,8 +243,16 @@ async def run_offline_pipeline(
             job_config = JobConfig()
 
         llm_client = create_llm_client()
-        jira_client = JiraClient()
-        feishu_client = FeishuClient()
+        jira_client = JiraClient(
+            server=job_config.jira_server,
+            email=job_config.jira_email,
+            api_token=job_config.jira_api_token
+        )
+        feishu_client = FeishuClient(
+            app_id=job_config.feishu_app_id,
+            app_secret=job_config.feishu_app_secret,
+            webhook_url=job_config.feishu_webhook_url
+        )
 
         final_state = await run_meeting_pipeline(
             meeting_id=meeting_id,
@@ -279,7 +298,7 @@ async def run_offline_pipeline(
 
         # 额外将转写文本写回为 reports 中的文本文件供下次复用，并在有标题时加上标题
         try:
-            reports_dir = find_project_root() / "reports"
+            reports_dir = find_project_root() / "reports" / meeting_id
             reports_dir.mkdir(parents=True, exist_ok=True)
         
             summary_title = ""

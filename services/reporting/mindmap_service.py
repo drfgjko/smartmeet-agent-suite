@@ -28,7 +28,8 @@ class MindMapService:
         生成 Mermaid 思维导图文件。
         返回 (mindmap_path, mindmap_generated)
         """
-        self.reports_dir.mkdir(parents=True, exist_ok=True)
+        target_dir = self.reports_dir / meeting_id
+        target_dir.mkdir(parents=True, exist_ok=True)
 
         import re
         safe_title = ""
@@ -37,7 +38,7 @@ class MindMapService:
             safe_title = safe_title[:50].strip()
 
         filename_base = f"{meeting_id}_{safe_title}" if safe_title else meeting_id
-        mindmap_path = self.reports_dir / f"{filename_base}_mindmap.md"
+        mindmap_path = target_dir / f"{filename_base}_mindmap.md"
         mindmap_generated = False
 
         try:
