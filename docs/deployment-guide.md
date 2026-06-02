@@ -161,7 +161,11 @@ MCP 服务器通过 STDIO 协议与支持 MCP 的大模型客户端通信。
 | `/docs` | GET | Swagger 交互式文档 |
 | `/api/v1/recording/upload` | POST | 上传音视频文件 |
 | `/api/v1/recording/process` | POST | 离线处理（非流式） |
+| `/api/v1/recording/process/async`| POST | 离线处理（纯异步后台任务） |
 | `/api/v1/recording/process/stream` | POST | 离线处理（SSE 流式） |
+| `/api/v1/analyze` | POST | 原子化分析接口（纯 JSON 输出） |
+| `/api/v1/render` | POST | 原子化渲染与外部分发接口 |
+| `/api/v1/tasks/{task_id}` | GET | 异步任务轮询查询接口 |
 | `/ws/meeting/{meeting_id}` | WebSocket | 实时录音与多 Agent 处理 |
 
 详细接口文档见 [api-reference.md](api-reference.md)。

@@ -1,80 +1,118 @@
 # SmartMeet Agent Suite
 
-嗨，这里是 SmartMeet Agent Suite。
+SmartMeet Agent Suite 是一个结合多智能体工作流（LangGraph）与音视频处理引擎的开源工具。
 
-这是一个我为了解决“开会和整理视频学习资料太耗时”而折腾出来的开源工具。它主要是把 **多智能体工作流（LangGraph）** 和 **音视频处理引擎** 缝合在了一起。
+该项目旨在将会议、销售录音、教程视频等复杂音视频流，自动化转化为结构化、高排版质量的 PDF 讲义、思维导图和待办清单。
 
-简单来说，它的作用只有一个：**把一场复杂的会议、一段销售录音、或者一个几十集的技术教程视频，自动变成一份极其精美专业的 PDF 讲义、思维导图和待办清单。**
+## 项目背景
 
-## 为什么做这个项目？
+传统的长视频或长会议整理通常面临以下痛点：
+1. **语音转文字缺乏结构**：纯文本转换结果通常为缺乏排版和重点的流水账。
+2. **常规大模型总结单薄**：常规的单次摘要生成容易丢失决策细节及具体的任务分配（行动项）。
+3. **产出物缺乏专业排版**：纯 Markdown 文本在部分企业级场景下显得不够正式。
 
-以前每次开完长会或者看完长视频，我都会面临几个痛点：
-1. **语音转文字没法看**：几万字毫无排版的流水账，根本抓不住重点。
-2. **普通的大模型总结太单薄**：如果只是丢给 ChatGPT 让它写一段摘要，关键的决策细节、“谁负责什么任务”很容易丢失。
-3. **产出物不够正式**：老板或客户需要的是一份排版清晰、有重点标注、甚至带有视频关键截图的正式报告，纯 Markdown 文本拿不出手。
+本项目通过深度整合多智能体协作架构和底层音视频流解析，实现自动化直出企业级报告。
 
-所以，我基于开源社区优秀的多智能体框架和音视频处理引擎，进行了深度的架构重构与缝合，做成了这个专注于“一键直出企业级报告”的专属套件。
+## 架构与工作流
 
-## 它是怎么干活的？
+本项目基于微服务化的事件驱动架构设计，核心工作流如下：
 
-我把它设计成了“流水线”的工作模式：
-
-1. **听得清（输入与处理引擎）**
-   不管你扔进来的是本地的 MP4、录音，还是 B站/YouTube 链接。它底层会先做降噪，然后用 ASR (Whisper/FunASR) 转成文字，并且通过 `pyannote-audio` 把“谁说了哪句话”给区分开。
+1. **媒体处理引擎（音视频解析）**
+   支持本地音视频及 B站/YouTube 链接。底层采用 FFmpeg 进行降噪及音轨提取，结合 ASR (Whisper/FunASR) 进行语音转写，并通过 `pyannote-audio` 执行声纹分离。
    
-2. **脑子好（智能体协作）**
-   有了带人名的完整文字稿后，底层的 LangGraph 会同时唤醒三个 Agent 干活：
-   - **Summary Agent**：专门提炼议题和结论。
-   - **Action Agent**：专门抠出“谁、在什么时候前、要做什么”。
-   - **Insight Agent**：统计每个人说了多久、情绪怎么样。
+2. **多智能体协作与语境感知（Agent 层）**
+   核心基于 LangGraph 调度多个专职 Agent 进行流水线分析：
+   - **Speaker Inference Agent**：基于对话上下文自动推断匿名发言人的真实身份并执行全局替换。
+   - **Summary Agent**：提炼核心议题与结论。
+   - **Action Agent**：精准提取行动项（人员、时间节点、任务）。
+   - **Insight Agent**：分析情绪分布与发言效率。
 
-3. **做得漂亮（排版与自动执行）**
-   拿到上面那些数据后，系统会调用基于 LaTeX 的模板引擎，连同视频里的截图一起，渲染出一份非常专业的 PDF 讲义。
-   最后，系统会把这个 PDF 作为附件，自动发飞书或者同步到 Jira。
+3. **异步编排与持久化机制**
+   - **状态机与任务队列**：内置基于 SQLite 的轻量级异步任务队列，支持后台执行长耗时计算任务与状态轮询。
+   - **持久化 Checkpoint**：通过 `CheckpointService` 在提取、分析、渲染阶段自动保存 JSON 存档，支持断点续传与防崩溃兜底。
 
-## 🚀 如何启动与使用？
+4. **排版与分发机制**
+   排版层采用严格状态机的 LaTeX 模板注入 (Template Injection) 技术。结合 `Tectonic` 轻量级编译管线，输出带高亮边框和自动目录的 PDF 讲义。支持通过 Webhook 将结果自动推送至飞书群聊或 Jira 附件。
 
-### 第一步：启动后端 API 服务
-你需要先在后台挂起我们的 FastAPI 引擎。打开终端并在项目根目录下运行：
+## 项目当前状态与多端说明
+
+本项目采用“核心大底盘，全场景分发”的架构设计，支持多种交互端点：
+
+- ✅ **CLI 终端 (稳定可用)**：目前功能最稳定且经过完整测试的交互方式。核心流程与排版渲染均支持通过 CLI 调用。
+- 🚧 **Web 端 (`web/`)**：前端代码处于初期占位阶段，尚未完成闭环测试。
+- 🚧 **MCP 协议端 (`mcp/`)**：早期版本代码，尚未适配最新 API 架构。
+- 🚧 **桌面端 (`desktop/`)**：规划阶段。
+
+目前推荐主要通过后端 API 配合 CLI 客户端进行体验。
+
+## 部署与使用
+
+本项目支持**混合算力架构**与**优雅降级**机制：若环境配置有 GPU 及相关环境，系统优先调用本地大模型和 Whisper；若处于轻量级环境，系统自动降级并切换至云端 API（如 OpenAI / Cloudflare Workers）。
+
+### 部署方案选择
+
+#### 方案 A：轻量级 Docker 部署 (适用云端算力)
+适用于主要依赖云端 API（Cloud Whisper + Cloud LLM）的场景。可自行编写 Dockerfile 进行容器化部署。镜像仅需包含 Python 环境及 `FFmpeg`，无需配置 CUDA 及 PyTorch。
+
+#### 方案 B：Miniconda 本地部署 (适用本地 GPU)
+适用于需最大化利用本地 GPU 算力处理敏感数据的场景，推荐使用 Miniconda 实现环境隔离。
+
+1. 安装 [Miniconda](https://docs.conda.io/en/latest/miniconda.html) (Python 3.11+)。
+2. 在项目根目录执行以下命令创建包含 PyTorch、FFmpeg 等依赖的虚拟环境：
+   ```bash
+   conda env create -f environment.yml
+   conda activate smartmeet
+   ```
+
+### 核心配置 (.env)
+
+系统通过 `.env` 配置文件控制底层大模型和语音引擎的调度策略。
+
+1. 复制配置模板：
+   ```bash
+   cp .env.example .env
+   ```
+2. **大语言模型 (LLM) 配置**：配置 `LLM_API_KEY` 和 `LLM_BASE_URL`，可对接 OpenAI、DeepSeek、Cloudflare 等兼容模型。
+3. **语音引擎 (ASR) 调度**：通过 `ASR_ENGINE` 变量控制算力流向：
+   - `ASR_ENGINE=auto` (默认)：优先探测并使用本地算力 (FunASR/Faster-Whisper)。
+   - `ASR_ENGINE=openai` 或 `groq`：屏蔽本地模型，强制调用相应的云端 API 处理语音。
+
+### 启动服务
+
+**启动后端 API 服务：**
 ```bash
 python -m api.main
 ```
-看到“服务已成功启动！”的提示后，把这个窗口最小化挂在后台即可。
+启动成功后可置于后台运行。
 
-### 第二步：使用 CLI 客户端处理文件
-重新开一个终端窗口。这个强大的 CLI 可以帮你处理任何本地音视频，或是长长的一步到位的 B 站/YouTube 链接！
+**使用 CLI 客户端：**
+在新的终端会话中（需处于激活的 conda 环境），可通过 CLI 处理音视频。
 
-- **处理本地音视频 / 恢复旧版文字稿：**
+- **处理本地文件：**
   ```bash
-  python -m cli process /path/to/your/audio.mp4
+  python -m cli process /path/to/your/audio.mp4 -c "Q3 预算评审会议"
   ```
-  *(注：如果你传入的是之前生成过的 `_transcript.txt` 文件，系统会智能秒级跳过语音识别，直接让大模型重新为您排版全新的精美报告！)*
 
-- **处理在线视频链接：**
+- **处理在线视频：**
   ```bash
   python -m cli run "https://www.bilibili.com/video/BVxxxxx"
   ```
+  *(注：完整 API 接口及集成指南详见 [docs/deployment-guide.md](docs/deployment-guide.md)。)*
 
 ## 系统与环境依赖
 
-由于本项目涉及深度的音视频流提取、AI 推理和专业排版，除了 Python 包依赖外，**必须/推荐安装以下系统级底层组件**：
+除 Python 依赖外，系统级组件要求如下：
 
 1. **FFmpeg (必需)**
-   - **用途**：用于底层的视频解析、音频抽取、降噪切片以及关键帧提取。
-   - **安装说明**：Windows 系统请手动下载并将其加入 `PATH` 环境变量；Linux 用户可通过 `apt install ffmpeg` 安装。
-
-2. **GTK3 Runtime (强烈推荐)**
-   - **用途**：支撑 `WeasyPrint` 原生 PDF 排版引擎。如未安装，系统将降级使用无书签交互的浏览器截页模式渲染 PDF。
-   - **安装说明**：Windows 系统请下载并傻瓜式安装 [GTK3 for Windows Runtime](https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases)。
-
-3. **Google Chrome 或 Microsoft Edge (降级备选)**
-   - **用途**：若无 GTK3 环境，系统会兜底使用系统中的 Chrome/Edge 的无头模式（Headless）打印输出基础版 PDF。
-
-4. **CUDA 工具链 (可选但极其影响性能)**
-   - **用途**：通过 GPU 硬件加速 Whisper 语音识别和 pyannote 说话人分离。如果只有 CPU，解析长视频可能会耗费大量时间。
+   - 核心用途：视频解析、音频抽取、降噪切片、关键帧提取。
+   - 安装要求：Windows 需手动加入 `PATH`；Linux 推荐 `apt install ffmpeg`。
+2. **Tectonic (LaTeX 核心排版引擎)**
+   - 核心用途：负责高质量的 PDF 生成。项目根目录已自带便携版 `tectonic.exe`，您**不需要**在本地手动安装庞大的 LaTeX 发行版（如 TeX Live），程序运行期间引擎会自动通过网络拉取所需的轻量化宏包。
+3. **GTK3 Runtime (针对 HTML 降级模式可选)**
+   - 核心用途：当 LaTeX 编译失败触发 HTML 降级模式时，支撑 `WeasyPrint` 进行渲染。若未安装 GTK3，系统会最终兜底调用系统自带 Chrome/Edge 的无头模式（Headless）进行排版打印。
+4. **CUDA 工具链 (可选)**
+   - 核心用途：硬件加速 Whisper 及 pyannote 推理。
 
 ---
 
-**鸣谢**：本项目的架构重构与底层计算单元深度受益于开源社区，详细第三方开源归属声明请见 [CREDITS.txt](CREDITS.txt)。
-
-> **Made-with: Gemini 3.1 Pro**
+**开源鸣谢**：第三方开源组件声明详见 [CREDITS.txt](CREDITS.txt)。
