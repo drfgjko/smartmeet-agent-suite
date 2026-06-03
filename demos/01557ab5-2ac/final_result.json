@@ -126,7 +126,22 @@
   },
   "actions": {
     "meeting_id": "01557ab5-2ac",
-    "action_items": [],
+    "action_items": [
+      {
+        "assignee": "Speaker 9",
+        "task": "完成宠物智能项圈的市场竞争格局和用户需求深度调研",
+        "deadline": "2026-06-15",
+        "priority": "high",
+        "context": "进一步调研宠物智能项圈的市场竞争和用户需求。"
+      },
+      {
+        "assignee": "Speaker 5",
+        "task": "制定智能项圈详细的产品开发计划和商业模式报告",
+        "deadline": "2026-06-20",
+        "priority": "medium",
+        "context": "制定详细的产品开发计划和商业模式。"
+      }
+    ],
     "sync_status": {
       "jira": "enabled",
       "feishu": "enabled"
