@@ -22,6 +22,7 @@
    - services 层的子模块之间禁止直接导入下划线前缀的私有函数，必须通过 __init__.py 暴露的公开 API 调用。
    - agents 层的每个 Agent 的输入输出必须符合 schemas/ 中定义的契约模型，禁止使用裸 dict 传递结构化数据。
 5. LLM 客户端注入与统一规范：所有需要调用 LLM 的模块必须通过构造函数注入由 services.integrations.llm_client.create_llm_client() 产生的统一客户端，禁止在模块内部直接实例化 OpenAI() 或使用废弃的特定厂商客户端（如原 MiniMaxClient）。
+6. 终端执行失败熔断机制：当遇到跑脚本、指令多次报错失败时，应该立刻停止尝试并向用户反馈。因为许多问题源于 Agent 环境限制（如 Conda 路径、Windows 权限等），此时应直接提供终端指令让用户在其本地环境执行，避免无意义的重试。
 
 ## 三、Git 提交规范
 所有代码修改的 Commit Message 必须遵循以下结构化格式（参考 Conventional Commits）：

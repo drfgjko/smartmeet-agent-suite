@@ -135,6 +135,14 @@ python -m cli.main process /path/to/meeting.mp4 -c "Q3 预算评审会议"
 
 # 处理在线视频
 python -m cli.main run https://www.bilibili.com/video/BV1xx411c7mD
+
+# 纯交付分发（渲染排版、建任务、发飞书）
+python -m cli.main deliver /path/to/final_result.json --sync-tasks
+
+# 附加自定义配置 (JobConfig)
+# 可以直接传递 JSON 字符串，也可以传递 JSON 文件的路径
+python -m cli.main process /path/to/meeting.mp4 --config '{"feishu": {"enabled": false}}'
+python -m cli.main run https://bilibili... --config ./my_config.json
 ```
 
 CLI 通过环境变量 `SMARTMEET_API` 指定 API 服务地址（默认 `http://127.0.0.1:8000`）。

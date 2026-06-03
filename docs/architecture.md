@@ -46,7 +46,6 @@ graph TB
         D1["Summary Agent<br/>结构化摘要"]
         D2["Action Agent<br/>待办提取·外部同步"]
         D3["Insight Agent<br/>发言洞察·情绪分析"]
-        D4["Follow-Up Agent<br/>(Fan-in 汇聚)"]
     end
 
     %% ===== 文档与服务层 =====
@@ -86,10 +85,10 @@ graph TB
     C5 --> D0
 
     D0 --> D1 & D2 & D3
-    D1 & D2 & D3 --> D4
+    D1 & D2 & D3 --> D0
 
-    D4 --> E1 --> E2 --> E4
-    D4 --> E3
+    D0 --> E1 --> E2 --> E4
+    D0 --> E3
 
     E2 --> F1 & F2 & F3
     E3 --> F4
@@ -111,7 +110,8 @@ graph TB
 | [api/main.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/api/main.py) | FastAPI 入口，注册路由、CORS 中间件、静态文件服务 |
 | [api/routes/recording.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/api/routes/recording.py) | 音视频处理核心入口：文件上传、离线处理（含流式进度推送与异步后台任务） |
 | [api/routes/analyze.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/api/routes/analyze.py) | 原子化分析接口：仅运行 AI Agent 提取摘要、待办和洞察（不含音视频处理与排版） |
-| [api/routes/render.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/api/routes/render.py) | 原子化渲染接口：根据分析结果排版生成 PDF/Markdown/思维导图报告及触发分发 |
+| [api/routes/deliver.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/api/routes/deliver.py) | 纯交付接口：接受分析结果并执行渲染、思维导图生成与飞书/Jira 分发 |
+| [api/routes/render.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/api/routes/render.py) | 原子化渲染接口：根据分析结果排版生成 PDF/Markdown/思维导图报告 |
 | [api/routes/tasks.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/api/routes/tasks.py) | 异步任务管理：用于轮询查询离线异步处理任务状态 |
 | [api/routes/websocket.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/api/routes/websocket.py) | 实时录音 WebSocket 接口，接收音频流并触发完整流水线 |
 
@@ -132,10 +132,9 @@ graph TB
 |------|------|
 | [workflows/meeting_workflow.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/workflows/meeting_workflow.py) | LangGraph `StateGraph` 编排定义：Fan-out 并行 + Fan-in 汇聚 |
 | [agents/summary_agent.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/agents/summary_agent.py) | 从转写文本生成结构化会议纪要（议题、讨论要点、结论、决策） |
-| [agents/action_agent.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/agents/action_agent.py) | 提取行动项（谁/做什么/截止时间），委托 `action_sync` 同步至 Jira/飞书 |
+| [agents/action_agent.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/agents/action_agent.py) | 提取行动项（谁/做什么/截止时间） |
 | [agents/insight_agent.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/agents/insight_agent.py) | 发言统计、情绪分析、效率评分、关键词提取 |
 | [agents/speaker_inference_agent.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/agents/speaker_inference_agent.py) | 根据对话上下文推断匿名发言人的真实姓名，执行全局身份替换 |
-| [agents/followup_agent.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/agents/followup_agent.py) | Fan-in 汇聚节点，调用服务层生成报告/思维导图并分发 |
 | [schemas/meeting_schemas.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/schemas/meeting_schemas.py) | Pydantic 数据契约层，定义 Agent 间传递的结构化数据类型 |
 
 ### 3.4 服务层 `services/`
@@ -191,15 +190,16 @@ sequenceDiagram
     par Summary Agent
         Graph->>Graph: 结构化摘要生成
     and Action Agent
-        Graph->>Graph: 行动项提取+外部同步
+        Graph->>Graph: 行动项提取
     and Insight Agent
         Graph->>Graph: 发言洞察+情绪分析
     end
 
-    Graph->>Graph: Follow-Up Agent 汇聚
-    Graph->>Services: 报告组装+渲染
-    Graph->>Services: 思维导图生成
-    Graph->>Services: 飞书/Jira 分发
+    Graph->>App: 汇聚分析结果
+    App->>Services: 交付流水线 (Delivery)
+    Services->>Services: 报告组装+渲染
+    Services->>Services: 思维导图生成
+    Services->>Services: 任务同步 (Jira) + 报告分发 (飞书)
 
     App->>API: 返回完整结果
     API->>Client: JSON 响应
@@ -256,28 +256,27 @@ graph LR
         S3["Insight Agent<br/>发言洞察+情绪"]
     end
 
-    subgraph FanIn["Fan-In 汇聚阶段"]
-        FU["Follow-Up Agent<br/>报告组装+渲染+分发"]
+    subgraph FanIn["Delivery 交付阶段"]
+        DEL["Delivery Pipeline<br/>报告渲染+任务同步+平台分发"]
     end
 
     Frames --> S1 & S2 & S3
-    S1 & S2 & S3 --> FU
+    S1 & S2 & S3 --> DEL
     
-    FU --> MD["Markdown 报告"]
-    FU --> PDF["LaTeX PDF 讲义"]
-    FU --> HTML["HTML 网页版"]
-    FU --> MM["Mermaid 思维导图"]
-    FU --> DS["飞书/Jira 分发"]
+    DEL --> MD["Markdown 报告"]
+    DEL --> PDF["LaTeX PDF 讲义"]
+    DEL --> HTML["HTML 网页版"]
+    DEL --> MM["Mermaid 思维导图"]
+    DEL --> DS["飞书/Jira 同步与分发"]
 ```
 
 ### Agent 间数据契约
 
 | 数据模型 | 来源 Agent | 消费方 | 核心字段 |
 |----------|-----------|--------|----------|
-| [SummaryOutput](file:///d:/Workspace/agent-project/smartmeet-agent-suite/schemas/meeting_schemas.py#L24-L31) | SummaryAgent | FollowUpAgent | title, date, participants, topics, decisions, next_steps |
-| [ActionOutput](file:///d:/Workspace/agent-project/smartmeet-agent-suite/schemas/meeting_schemas.py#L50-L54) | ActionAgent | FollowUpAgent | meeting_id, action_items, sync_status |
-| [InsightOutput](file:///d:/Workspace/agent-project/smartmeet-agent-suite/schemas/meeting_schemas.py#L66-L74) | InsightAgent | FollowUpAgent | overall_sentiment, speaker_stats, efficiency_score, keywords |
-| [FollowUpOutput](file:///d:/Workspace/agent-project/smartmeet-agent-suite/schemas/meeting_schemas.py#L100-L103) | FollowUpAgent | API 响应 | meeting_id, artifacts, delivery_results |
+| [SummaryOutput](file:///d:/Workspace/agent-project/smartmeet-agent-suite/schemas/meeting_schemas.py#L24-L31) | SummaryAgent | Delivery Pipeline | title, date, participants, topics, decisions, next_steps |
+| [ActionOutput](file:///d:/Workspace/agent-project/smartmeet-agent-suite/schemas/meeting_schemas.py#L50-L54) | ActionAgent | Delivery Pipeline | meeting_id, action_items, sync_status |
+| [InsightOutput](file:///d:/Workspace/agent-project/smartmeet-agent-suite/schemas/meeting_schemas.py#L66-L74) | InsightAgent | Delivery Pipeline | overall_sentiment, speaker_stats, efficiency_score, keywords |
 
 ---
 
@@ -332,6 +331,7 @@ smartmeet-agent-suite/
 │   ├── main.py                 # 入口与路由注册
 │   └── routes/
 │       ├── analyze.py          # 原子化分析 API
+│       ├── deliver.py          # 纯交付 API
 │       ├── recording.py        # 核心入口：离线处理及任务分发
 │       ├── render.py           # 原子化渲染 API
 │       ├── tasks.py            # 异步任务查询 API
@@ -340,8 +340,7 @@ smartmeet-agent-suite/
 │   ├── summary_agent.py        # 摘要 Agent
 │   ├── action_agent.py         # 待办 Agent
 │   ├── insight_agent.py        # 洞察 Agent
-│   ├── speaker_inference_agent.py # 发言人推断 Agent
-│   └── followup_agent.py       # 跟进 Agent（Fan-in 汇聚）
+│   └── speaker_inference_agent.py # 发言人推断 Agent
 ├── workflows/
 │   └── meeting_workflow.py     # LangGraph 状态图编排
 ├── schemas/

@@ -314,13 +314,42 @@ POST /api/v1/analyze
 
 ---
 
-### 3.7 原子化渲染与分发接口
+### 3.7 原子化渲染接口
 
 ```http
 POST /api/v1/render
 ```
 
-渲染接口 — 接受分析 Agent 输出的完整 JSON，独立生成 Markdown/PDF/HTML/思维导图报告。可选执行外部分发（飞书/Jira/通用 Webhook）。
+渲染接口 — 接受分析 Agent 输出的完整 JSON，独立生成 Markdown/PDF/HTML/思维导图报告（不包含外部任务同步与分发）。
+
+**请求格式**：`application/json`
+
+**请求示例**：
+
+```json
+{
+  "meeting_id": "a1b2c3d4e5f6",
+  "summary": { ... },
+  "actions": { ... },
+  "insights": { ... },
+  "job_config": {
+    "enable_report_render": true,
+    "enable_mindmap": true
+  }
+}
+```
+
+**响应示例**：返回生成的资产路径，详见 `/process` 接口响应中的 `followup.artifacts` 字段。
+
+---
+
+### 3.8 纯交付接口 (Deliver)
+
+```http
+POST /api/v1/deliver
+```
+
+纯交付接口 — 接受分析 Agent 输出的完整 JSON，独立执行完整的交付流水线（包含排版渲染、思维导图生成、任务同步 Jira 以及多渠道分发飞书）。
 
 **请求格式**：`application/json`
 
@@ -336,12 +365,18 @@ POST /api/v1/render
     "enable_report_render": true,
     "enable_mindmap": true,
     "enable_delivery": true,
-    "enable_feishu": true
-  }
+    "feishu": {
+      "enabled": true,
+      "push_card": true,
+      "push_pdf": true,
+      "push_mindmap": true
+    }
+  },
+  "sync_tasks": true
 }
 ```
 
-**响应示例**：返回生成的资产路径及分发结果，详见 `/process` 接口响应中的 `followup` 字段。
+**响应示例**：返回生成的资产路径及同步、分发结果，详见 `/process` 接口响应中的 `followup` 和 `actions` 字段。
 
 ## 四、WebSocket 实时接口
 
