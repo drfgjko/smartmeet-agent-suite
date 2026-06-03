@@ -22,6 +22,7 @@ from api.routes.websocket import router as ws_router
 from api.routes.analyze import router as analyze_router
 from api.routes.render import router as render_router
 from api.routes.tasks import router as tasks_router
+from api.routes.deliver import router as deliver_router
 
 _REPORTS_DIR = Path(__file__).resolve().parents[1] / "reports"
 _REPORTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -55,6 +56,7 @@ app.include_router(ws_router)
 app.include_router(analyze_router)
 app.include_router(render_router)
 app.include_router(tasks_router)
+app.include_router(deliver_router)
 app.mount("/reports", StaticFiles(directory=_REPORTS_DIR), name="reports")
 
 @app.get("/")

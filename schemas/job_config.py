@@ -38,7 +38,8 @@ class JobConfig(BaseModel):
     # ── FollowUp 子步骤开关 ──
     enable_report_render: bool = True  # 是否渲染 Markdown/PDF/HTML 报告
     enable_mindmap: bool = True        # 是否生成思维导图
-    enable_delivery: bool = True       # 是否执行外部分发（飞书/Jira/Webhook）
+    enable_delivery: bool = True       # 是否执行外部分发（仅发卡片/PDF/导图等通知）
+    enable_task_sync: bool = False     # 是否执行任务同步（建飞书/Jira 待办，涉及修改外部状态，默认关闭需人工开启）
 
     # ── 外部分发通道配置 ──
     feishu: ChannelConfig = Field(default_factory=ChannelConfig)
@@ -58,4 +59,4 @@ class JobConfig(BaseModel):
     @property
     def any_followup_enabled(self) -> bool:
         """是否有至少一个 FollowUp 子步骤被启用"""
-        return self.enable_report_render or self.enable_mindmap or self.enable_delivery
+        return self.enable_report_render or self.enable_mindmap or self.enable_delivery or self.enable_task_sync

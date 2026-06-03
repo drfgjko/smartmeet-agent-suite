@@ -260,41 +260,99 @@ async def run_offline_pipeline(
             transcript=diar_result,
             keyframes=frames_result,
             llm_client=llm_client,
-            jira_client=jira_client,
-            feishu_client=feishu_client,
             job_config=job_config,
         )
 
         # Step 9: 组装输出结果
         outputs = serialize_agent_outputs(final_state)
 
-        # 从 followup 产物中读取渲染后的 Markdown 报告正文
+        # ── 图后处理：渲染 + 自动分发报告 ──
+        from services import ReportComposer, ReportRenderer, MindMapService, ReportDelivery
+        from schemas import FollowUpArtifacts
+
+        md_path = None
+        pdf_path = None
+        html_path = None
+        pdf_generated = False
+        mindmap_path = None
+        mindmap_generated = False
+        final_report_md = ""
+        
+        summary = outputs.get("summary")
+        actions = outputs.get("actions")
+        insights = outputs.get("insights")
+
+        # 1. 报告渲染
+        if job_config.enable_report_render:
+            composer = ReportComposer(llm_client=llm_client)
+            renderer = ReportRenderer(llm_client=llm_client)
+            final_report_md, kf_objects = await composer.compose_report(
+                meeting_id=meeting_id,
+                summary=summary,
+                actions=actions,
+                insights=insights,
+                keyframes=frames_result,
+            )
+            title = summary.get("title") if summary else None
+            md_path, pdf_path, html_path, pdf_generated = await renderer.render_report(
+                meeting_id=meeting_id,
+                final_report_md=final_report_md,
+                kf_objects=kf_objects,
+                title=title,
+            )
+
+        # 2. 思维导图
+        if job_config.enable_mindmap:
+            mindmap_service = MindMapService(llm_client=llm_client)
+            if not final_report_md:
+                composer = ReportComposer(llm_client=llm_client)
+                final_report_md, _ = await composer.compose_report(
+                    meeting_id=meeting_id,
+                    summary=summary,
+                    actions=actions,
+                    insights=insights,
+                    keyframes=frames_result,
+                )
+            title = summary.get("title") if summary else None
+            mindmap_path, mindmap_generated = await mindmap_service.generate_and_save_mindmap(
+                meeting_id=meeting_id,
+                final_report_md=final_report_md,
+                title=title,
+            )
+
+        # 3. 自动分发报告（仅卡片/PDF/导图，不含任务同步）
+        if job_config.enable_delivery:
+            delivery = ReportDelivery(feishu_client=feishu_client, jira_client=jira_client)
+            # 需要把 dict 转换为 Pydantic 对象，或者依赖 Pydantic 自动转型
+            from schemas import SummaryOutput, ActionOutput, InsightOutput
+            await delivery.deliver_report(
+                meeting_id=meeting_id,
+                summary=SummaryOutput(**summary) if summary else SummaryOutput(),
+                actions=ActionOutput(**actions) if actions else ActionOutput(),
+                insights=InsightOutput(**insights) if insights else InsightOutput(),
+                pdf_path=pdf_path,
+                pdf_generated=pdf_generated,
+                mindmap_path=mindmap_path,
+                mindmap_generated=mindmap_generated,
+                feishu_config=job_config.feishu,
+                jira_config=job_config.jira,
+            )
+
+        # 将生成的路径整理到 output_files 和 content 中
         content = ""
         output_files = {}
-        followup_data = outputs.get("followup")
-        if followup_data:
-            artifacts = followup_data.get("artifacts")
-            if artifacts:
-                # 读取 Markdown 文件内容作为 API 响应正文
-                md_path_str = artifacts.get("markdown_path")
-                if md_path_str:
-                    md_path = Path(md_path_str)
-                    if md_path.exists():
-                        try:
-                            content = md_path.read_text(encoding="utf-8")
-                        except Exception as e:
-                            logger.error(f"读取生成的 Markdown 报告失败: {e}")
-
-                # 将各格式产物路径映射到 output_files
-                for fmt, key in [
-                    ("markdown", "markdown_path"),
-                    ("pdf", "pdf_path"),
-                    ("html", "html_path"),
-                    ("mindmap", "mindmap_path")
-                ]:
-                    path_str = artifacts.get(key)
-                    if path_str:
-                        output_files[fmt] = path_str
+        if md_path and md_path.exists():
+            try:
+                content = md_path.read_text(encoding="utf-8")
+                output_files["markdown"] = str(md_path)
+            except Exception as e:
+                logger.error(f"读取生成的 Markdown 报告失败: {e}")
+        if pdf_generated and pdf_path:
+            output_files["pdf"] = str(pdf_path)
+        if html_path:
+            output_files["html"] = str(html_path)
+        if mindmap_generated and mindmap_path:
+            output_files["mindmap"] = str(mindmap_path)
 
         # 额外将转写文本写回为 reports 中的文本文件供下次复用，并在有标题时加上标题
         try:
@@ -351,10 +409,9 @@ async def run_offline_pipeline(
             "diarized_transcript": diar_result.transcript_with_speakers,
             "content": content,
             "output_files": output_files,
-            "summary": outputs["summary"],
-            "actions": outputs["actions"],
-            "insights": outputs["insights"],
-            "followup": outputs["followup"],
+            "summary": outputs.get("summary", {}),
+            "actions": outputs.get("actions", {}),
+            "insights": outputs.get("insights", {}),
             "keyframes": [
                 {
                     "path": str(frame.path),

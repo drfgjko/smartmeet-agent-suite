@@ -13,7 +13,6 @@ from loguru import logger
 from agents.summary_agent import SummaryAgent
 from agents.action_agent import ActionAgent
 from agents.insight_agent import InsightAgent
-from agents.followup_agent import FollowUpAgent
 from agents.speaker_inference_agent import SpeakerInferenceAgent
 from schemas import MeetingGraphState, JobConfig
 from services.media_engine import DiarizationResult, ExtractedFrame
@@ -42,7 +41,7 @@ def build_meeting_graph(
 
     图结构逻辑：
         START ──┬── [summary]  (if enable_summary)  ──┐
-                ├── [action]   (if enable_actions)  ──┤── [followup] (if any_followup_enabled) ── END
+                ├── [action]   (if enable_actions)  ──┤── END
                 └── [insight]  (if enable_insights) ──┘
 
     若所有分析 Agent 都被关闭，图仅包含一个直通到 END 的空节点。
@@ -73,7 +72,7 @@ def build_meeting_graph(
         enabled_agents.append("summary")
 
     if job_config.enable_actions:
-        action_agent = ActionAgent(llm_client=llm_client, jira_client=jira_client, feishu_client=feishu_client)
+        action_agent = ActionAgent(llm_client=llm_client)
         graph.add_node("action", action_agent.process)
         graph.add_edge(analysis_entry, "action")
         enabled_agents.append("action")
@@ -98,26 +97,11 @@ def build_meeting_graph(
         # 仅启用了 speaker_inference，没有后续分析 Agent，直接进入 FollowUp 判断
         enabled_agents.append("speaker_inference")
 
-    # 判断是否需要 FollowUp 节点
-    if job_config.any_followup_enabled:
-        followup_agent = FollowUpAgent(
-            feishu_client=feishu_client,
-            jira_client=jira_client,
-            llm_client=llm_client,
-        )
-        graph.add_node("followup", followup_agent.process)
+    # 所有启用的分析节点完成后直接到 END
+    for agent_name in enabled_agents:
+        graph.add_edge(agent_name, END)
 
-        for agent_name in enabled_agents:
-            graph.add_edge(agent_name, "followup")
-
-        graph.add_edge("followup", END)
-    else:
-        # FollowUp 全部关闭，分析 Agent 直接到 END
-        for agent_name in enabled_agents:
-            graph.add_edge(agent_name, END)
-        logger.info("FollowUp 子步骤全部关闭，分析 Agent 完成后直接结束")
-
-    logger.info(f"Meeting graph built: agents={enabled_agents}, followup={job_config.any_followup_enabled}")
+    logger.info(f"Meeting graph built: agents={enabled_agents}")
     return graph
 
 

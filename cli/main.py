@@ -24,7 +24,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-console = Console(encoding="utf-8")
+console = Console()
 
 API_BASE = os.environ.get("SMARTMEET_API", "http://127.0.0.1:8000")
 
@@ -166,6 +166,99 @@ def render(json_file, config):
     
     if res.get("errors"):
         console.print(Panel("\n".join(f"- {err}" for err in res.get("errors")), title="[bold red]执行过程中出现非致命错误[/bold red]", border_style="red"))
+
+@main.command()
+@click.argument("json_file", type=click.Path(exists=True))
+@click.option("--sync-tasks", is_flag=True, default=False, help="同步任务到飞书/Jira（默认关闭，需人工确认后开启）")
+@click.option("--skip-report", is_flag=True, default=False, help="跳过报告分发（卡片/PDF/导图），仅执行任务同步")
+@click.option("--config", default=None, help="JobConfig JSON 字符串或本地 JSON 文件路径")
+def deliver(json_file, sync_tasks, skip_report, config):
+    """
+    纯交付命令：读取已有的分析产物 JSON，执行投递（发卡片/传附件/建任务）。
+    不再执行分析、不再重新生成排版。
+    """
+    console.print(Panel(
+        f"[bold cyan]SmartMeet CLI[/bold cyan] - 纯交付客户端\n"
+        f"输入文件: {json_file}\n"
+        f"任务同步: {'[green]开启[/green]' if sync_tasks else '[yellow]关闭[/yellow]'}\n"
+        f"报告分发: {'[yellow]跳过[/yellow]' if skip_report else '[green]开启[/green]'}\n"
+        f"API 地址: {API_BASE}",
+        title="交付流水线启动",
+    ))
+
+    try:
+        input_data = json.loads(Path(json_file).read_text(encoding="utf-8"))
+    except Exception as e:
+        console.print(f"[red]无法解析 JSON 文件:[/red] {e}")
+        sys.exit(1)
+
+    payload = {
+        "meeting_id": input_data.get("meeting_id", "test_meeting"),
+        "summary": input_data.get("summary", {}),
+        "actions": input_data.get("actions", {}),
+        "insights": input_data.get("insights", {}),
+        "output_files": input_data.get("output_files", {}),
+        "job_config": {
+            "enable_task_sync": sync_tasks,
+            "enable_delivery": not skip_report
+        }
+    }
+
+    if config:
+        config_path = Path(config)
+        if config_path.exists() and config_path.is_file():
+            try:
+                user_conf = json.loads(config_path.read_text(encoding="utf-8"))
+                payload["job_config"].update(user_conf)
+            except Exception as e:
+                console.print(f"[yellow]无法读取配置文件 {config_path}: {e}[/yellow]")
+        else:
+            try:
+                user_conf = json.loads(config)
+                payload["job_config"].update(user_conf)
+            except Exception:
+                console.print(f"[yellow]无法解析 config 参数为 JSON[/yellow]")
+
+    deliver_url = f"{API_BASE}/api/v1/deliver"
+
+    with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"), console=console) as progress:
+        task = progress.add_task("正在调用交付接口...", total=None)
+        try:
+            r = httpx.post(deliver_url, json=payload, timeout=60.0)
+            if r.status_code != 200:
+                raise Exception(f"HTTP {r.status_code} - {r.text}")
+
+            res = r.json()
+            progress.update(task, description="[green]调用成功![/green]")
+        except Exception as e:
+            progress.update(task, description=f"[red]接口调用失败: {e}[/red]")
+            sys.exit(1)
+
+    console.print("\n[bold green]✅ 交付完成![/bold green]")
+    
+    delivery_results = res.get("delivery_results", [])
+    if delivery_results:
+        console.print("\n[bold]分发结果:[/bold]")
+        for dr in delivery_results:
+            status = "✅ 成功" if dr.get("success") else "❌ 失败"
+            console.print(f"- 渠道 [cyan]{dr.get('channel')}[/cyan]: {status}")
+            if not dr.get("success"):
+                console.print(f"  错误信息: {dr.get('error')}")
+            if dr.get("artifacts"):
+                console.print(f"  成功推送的资产: {', '.join(dr.get('artifacts', []))}")
+                
+    if sync_tasks:
+        synced_actions = res.get("synced_actions")
+        if synced_actions:
+            console.print("\n[bold]同步任务列表:[/bold]")
+            for item in synced_actions.get("action_items", []):
+                feishu_task = item.get("feishu_task_id") or "未创建"
+                jira_task = item.get("jira_issue_key") or "未创建"
+                console.print(f"- {item.get('task')} (负责人: {item.get('assignee')})")
+                console.print(f"  └─ 飞书ID: {feishu_task} | Jira ID: {jira_task}")
+
+    if res.get("errors"):
+        console.print(Panel("\n".join(f"- {err}" for err in res.get("errors")), title="[bold red]执行过程中出现错误[/bold red]", border_style="red"))
 
 def _run_process_stream(file_id=None, url=None, context=None, speakers=None, denoise=1, output=None, config=None):
     import time
