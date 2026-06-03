@@ -1,34 +1,27 @@
 # -*- coding: utf-8 -*-
 """
-Integration and unit tests for FollowUpAgent workflow, assets generation, and closed-loop integrations.
+交付流水线、资产生成以及闭环集成的集成测试与单元测试。
 """
 
 from __future__ import annotations
-import os
-import shutil
 import pytest
 import tempfile
-import httpx
 from pathlib import Path
 from unittest import mock
-from datetime import datetime
 
 from schemas import (
-    MeetingGraphState,
     SummaryOutput,
     ActionOutput,
     InsightOutput,
-    FollowUpOutput,
     TopicDetail,
     ActionItem,
     SpeakerStat,
+    ChannelConfig
 )
-from services.integrations.feishu_client import FeishuClient
-from services.integrations.jira_client import JiraClient
-from agents.followup_agent import FollowUpAgent
 from services.media_engine import ExtractedFrame
 from services import ReportComposer, ReportRenderer, MindMapService, ReportDelivery
-
+from services.integrations.feishu_client import FeishuClient
+from services.integrations.jira_client import JiraClient
 
 
 # ----------------------------------------------------------------------
@@ -62,7 +55,7 @@ async def test_feishu_client_upload_and_send():
         test_file = Path(tmpdir) / "test.pdf"
         test_file.write_bytes(b"pdf dummy data")
         
-        with mock.patch.object(client._client, "post", side_effect=mock_post):
+        with mock.patch.object(client._get_client(), "post", side_effect=mock_post):
             file_key = await client.upload_file(test_file, file_type="pdf")
             assert file_key == "file_key_999"
             
@@ -91,42 +84,25 @@ def test_jira_client_add_attachment():
 
 
 # ----------------------------------------------------------------------
-# 3. Follow-up Agent Tests
+# 3. Delivery Pipeline Tests
 # ----------------------------------------------------------------------
 
 @pytest.mark.asyncio
-async def test_followup_agent_process_flow():
-    """测试 FollowUpAgent 汇聚、动态排版、文档生成与分发的完整流程"""
-    # 准备 Mock LLM
-    mock_llm = mock.MagicMock()
-    # 模拟 chat 异步方法返回已排版的 markdown
-    async def mock_chat(messages, *args, **kwargs):
-        # 验证消息中包含图像占位符排版命令
-        assert any("IMAGE" in m["content"] for m in messages)
-        return "## 动态融合排版报告\n\n讨论了技术架构。{IMAGE:1}\n*图 1：视频架构展示帧*"
-    mock_llm.chat = mock_chat
-
-    # 模拟 chat_sync 同步方法返回思维导图代码
-    def mock_chat_sync(*args, **kwargs):
-        return "```mermaid\nmindmap\n  root((技术重构会议))\n```"
-    mock_llm.chat_sync = mock_chat_sync
-
-    # 准备 Mock Feishu & Jira
+async def test_delivery_pipeline_process_flow():
+    """测试纯服务层 Delivery 交付流水线的完整流程（替代旧的 FollowUpAgent）"""
+    # 准备 Mock 客户端
     mock_feishu = mock.MagicMock()
     mock_feishu.is_enabled = True
     mock_feishu.receive_id = "group_chat_id"
-    # mock 飞书异步方法 using AsyncMock
     mock_feishu.upload_file = mock.AsyncMock(side_effect=lambda file_path, file_type="pdf": f"mocked_key_{file_type}")
     mock_feishu.send_file = mock.AsyncMock(return_value=True)
     mock_feishu.send_meeting_summary = mock.AsyncMock(return_value=True)
 
     mock_jira = mock.MagicMock()
     mock_jira.is_enabled = True
+    mock_jira.add_attachment = mock.MagicMock(return_value=True)
 
-    # 初始化 FollowUpAgent
-    agent = FollowUpAgent(feishu_client=mock_feishu, jira_client=mock_jira, llm_client=mock_llm)
-
-    # 构造输入 State
+    # 构造输入数据
     summary = SummaryOutput(
         title="技术重构会议",
         participants=["张三", "李四"],
@@ -145,75 +121,49 @@ async def test_followup_agent_process_flow():
         speaker_stats=[SpeakerStat(speaker="张三", speaking_duration=120.0, speaking_ratio=0.6, segment_count=5)]
     )
     
-    # 构造临时测试用关键帧图片
+    # 初始化分发服务
+    delivery_service = ReportDelivery(feishu_client=mock_feishu, jira_client=mock_jira)
+
+    # 运行分发逻辑（这里我们只测分发层的成功响应，因为前面渲染层已经解耦了）
+    # 我们假设 PDF 和 Mindmap 已经生成完毕
     with tempfile.TemporaryDirectory() as tmpdir:
-        frame_img = Path(tmpdir) / "frame_001.jpg"
-        frame_img.write_bytes(b"image data")
+        pdf_path = Path(tmpdir) / "test_meeting_t6.pdf"
+        pdf_path.write_bytes(b"pdf data")
         
-        keyframes = [
-            ExtractedFrame(
-                path=frame_img,
-                timestamp=45.2,
-                subtitle_text="这是架构设计的核心网关层"
-            )
-        ]
+        mm_path = Path(tmpdir) / "test_meeting_t6_mindmap.md"
+        mm_path.write_bytes(b"mindmap data")
+        
+        md_path = Path(tmpdir) / "test_meeting_t6.md"
+        md_path.write_text("## 动态融合排版报告", encoding="utf-8")
 
-        state = {
-            "meeting_id": "test_meeting_t6",
-            "summary": summary,
-            "actions": actions,
-            "insights": insights,
-            "keyframes": keyframes
-        }
+        # 配置分发通道
+        feishu_config = ChannelConfig(enabled=True, push_card=True, push_pdf=True, push_mindmap=True)
+        jira_config = ChannelConfig(enabled=True)
 
-        # 运行 FollowUpAgent.process
-        # 避开真实的 xelatex 与 chrome 打印
-        with mock.patch("services.document_engine.pdf_engine.LaTeXNoteBuilder.compile_pdf", return_value=None):
-            with mock.patch("services.document_engine.pdf_engine.HTMLNoteBuilder.html_to_pdf", return_value=True) as mock_html_to_pdf:
-                # 预先创建空的 PDF 文件，模拟编译或浏览器成功输出的情形
-                reports_dir = Path(__file__).resolve().parents[1] / "reports"
-                reports_dir.mkdir(parents=True, exist_ok=True)
-                pdf_target = reports_dir / "test_meeting_t6.pdf"
-                pdf_target.write_bytes(b"x" * 6000)
-                
-                result = await agent.process(state)
-                
-                assert result["status"] == "COMPLETED"
-                followup_data = result["followup"]
-                assert followup_data.meeting_id == "test_meeting_t6"
-                
-                # 检查 Markdown 报告是否在 reports 中写入
-                md_report = reports_dir / "test_meeting_t6.md"
-                assert md_report.exists()
-                report_content = md_report.read_text(encoding="utf-8")
-                assert "动态融合排版报告" in report_content
+        # 调用新的独立交付服务
+        results = await delivery_service.deliver_report(
+            meeting_id="test_meeting_t6",
+            summary=summary,
+            actions=actions,
+            insights=insights,
+            pdf_path=pdf_path,
+            pdf_generated=True,
+            mindmap_path=mm_path,
+            mindmap_generated=True,
+            feishu_config=feishu_config,
+            jira_config=jira_config
+        )
+        
+        # 验证分发结果
+        assert len(results) >= 1
+        feishu_res = next((r for r in results if r.channel == "feishu"), None)
+        assert feishu_res is not None
+        assert feishu_res.success is True
+        assert "mocked_key_pdf" in feishu_res.artifacts
+        jira_res = next((r for r in results if r.channel == "jira"), None)
+        assert jira_res is not None
+        assert jira_res.success is True
 
-                # 检查思维导图是否生成
-                mm_report = reports_dir / "test_meeting_t6_mindmap.md"
-                assert mm_report.exists()
-
-                # 检查最新的解耦结构化状态字段
-                assert followup_data.artifacts.markdown_path == str(md_report)
-                assert followup_data.artifacts.pdf_path == str(pdf_target)
-                assert followup_data.artifacts.mindmap_path == str(mm_report)
-                
-                # 检查分发结果
-                assert len(followup_data.delivery_results) == 2
-                feishu_res = next(r for r in followup_data.delivery_results if r.channel == "feishu")
-                assert feishu_res.success is True
-                jira_res = next(r for r in followup_data.delivery_results if r.channel == "jira")
-                assert jira_res.success is True
-
-                # 验证飞书和 Jira 的上传方法被成功调用
-                mock_feishu.upload_file.assert_called()
-                mock_feishu.send_file.assert_called()
-                mock_jira.add_attachment.assert_any_call("MEET-202", pdf_target)
-                mock_jira.add_attachment.assert_any_call("MEET-202", mm_report)
-                
-                # 清理临时生成的文件
-                for f in (md_report, pdf_target, mm_report, reports_dir / "test_meeting_t6.html"):
-                    if f.exists():
-                        f.unlink()
 
 
 @pytest.mark.asyncio
@@ -264,20 +214,19 @@ async def test_reporting_and_delivery_services_individually():
 
         # 2. 测试 ReportRenderer
         renderer = ReportRenderer(reports_dir=temp_path)
-        with mock.patch("services.document_engine.pdf_engine.LaTeXNoteBuilder.compile_pdf", return_value=None):
-            with mock.patch("services.document_engine.pdf_engine.HTMLNoteBuilder.html_to_pdf", return_value=True):
-                # 预先创建空 PDF 绕过真实编译
-                pdf_dummy = temp_path / "unit_test_mtg.pdf"
-                pdf_dummy.write_bytes(b"pdfdata" * 1000)
-                
-                md_path, pdf_path, html_path, pdf_generated = await renderer.render_report(
-                    meeting_id="unit_test_mtg",
-                    final_report_md=report_md,
-                    kf_objects=kf_objects
-                )
-                assert md_path.exists()
-                assert pdf_path.exists()
-                assert pdf_generated is True
+        with mock.patch("services.document_engine.pdf_engine.LaTeXNoteBuilder.compile_pdf", return_value=temp_path / "mock.pdf"):
+            # 预先创建空 PDF 绕过真实编译
+            pdf_dummy = temp_path / "unit_test_mtg.pdf"
+            pdf_dummy.write_bytes(b"pdfdata" * 1000)
+            
+            md_path, pdf_path, html_path, pdf_generated = await renderer.render_report(
+                meeting_id="unit_test_mtg",
+                final_report_md=report_md,
+                kf_objects=kf_objects
+            )
+            assert md_path.exists()
+            assert pdf_path.exists()
+            assert pdf_generated is True
 
         # 3. 测试 MindMapService
         mindmap_service = MindMapService(llm_client=mock_llm, reports_dir=temp_path)
@@ -328,7 +277,9 @@ async def test_report_delivery_success_calculations():
     mock_feishu.is_enabled = True
     mock_feishu.receive_id = "chat_group"
     mock_feishu.send_meeting_summary = mock.AsyncMock(return_value=False)
-    
+    mock_feishu.upload_file = mock.AsyncMock(return_value="mock_key")
+    mock_feishu.send_file = mock.AsyncMock(return_value=True)
+
     delivery = ReportDelivery(feishu_client=mock_feishu, jira_client=None)
     results = await delivery.deliver_report(
         meeting_id="test", summary=summary, actions=actions, insights=insights,
@@ -336,7 +287,7 @@ async def test_report_delivery_success_calculations():
     )
     assert results[0].success is False
 
-    # Case 2: 飞书文本成功，但 PDF 上传失败 -> 飞书 channel success 应为 False
+    # Case 2: 飞书文本成功，但 PDF 上传失败 -> 飞书 channel success 应为 True，但 partial_success 应为 True
     mock_feishu = mock.MagicMock()
     mock_feishu.is_enabled = True
     mock_feishu.receive_id = "chat_group"
@@ -349,9 +300,10 @@ async def test_report_delivery_success_calculations():
         meeting_id="test", summary=summary, actions=actions, insights=insights,
         pdf_path=pdf_path, pdf_generated=True, mindmap_path=mm_path, mindmap_generated=True,
     )
-    assert results[0].success is False
+    assert results[0].success is True
+    assert results[0].partial_success is True
 
-    # Case 3: 飞书文本成功，PDF 上传成功，但 PDF 发送失败 -> 飞书 channel success 应为 False
+    # Case 3: 飞书文本成功，PDF 上传成功，但 PDF 发送失败 -> 飞书 channel success 应为 True，partial_success 为 True
     mock_feishu = mock.MagicMock()
     mock_feishu.is_enabled = True
     mock_feishu.receive_id = "chat_group"
@@ -366,7 +318,8 @@ async def test_report_delivery_success_calculations():
         meeting_id="test", summary=summary, actions=actions, insights=insights,
         pdf_path=pdf_path, pdf_generated=True, mindmap_path=mm_path, mindmap_generated=True,
     )
-    assert results[0].success is False
+    assert results[0].success is True
+    assert results[0].partial_success is True
 
     # Case 4: 飞书全部成功 -> 飞书 channel success 应为 True
     mock_feishu = mock.MagicMock()

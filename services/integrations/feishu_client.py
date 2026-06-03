@@ -114,14 +114,22 @@ class FeishuClient:
         return {"task_id": task_id, "data": data}
 
     async def send_meeting_summary(self, title: str, summary_md: str, action_items_md: str, insights_md: str) -> bool:
+        import re
+        def _clean_feishu_md(text: str) -> str:
+            if not text:
+                return ""
+            # 将 markdown 的 # 标题语法转换为飞书卡片支持的加粗
+            text = re.sub(r'^(#{1,6})\s+(.+)$', r'**\2**', text, flags=re.MULTILINE)
+            return text.strip()
+
         content = (
-            f"**会议主题**: {title}\n\n"
+            f"**🎯 会议主题**: {title}\n\n"
             f"---\n\n"
-            f"**📋 会议纪要**\n{summary_md}\n\n"
+            f"**📋 会议纪要**\n{_clean_feishu_md(summary_md)}\n\n"
             f"---\n\n"
-            f"**✅ 待办事项**\n{action_items_md}\n\n"
+            f"**✅ 待办事项**\n{_clean_feishu_md(action_items_md)}\n\n"
             f"---\n\n"
-            f"**📊 会议洞察**\n{insights_md}"
+            f"**📊 会议洞察**\n{_clean_feishu_md(insights_md)}"
         )
         
         # 优先使用 Webhook 发送
@@ -169,16 +177,18 @@ class FeishuClient:
         url = f"{self.BASE_URL}/im/v1/files"
         headers = {"Authorization": f"Bearer {token}"}
         
-        files = {
-            "file": (path.name, open(path, "rb"), "application/octet-stream")
-        }
         data = {
             "file_type": file_type,
             "file_name": path.name,
         }
         
         try:
-            resp = await self._get_client().post(url, headers=headers, data=data, files=files)
+            with open(path, "rb") as f:
+                files = {
+                    "file": (path.name, f, "application/octet-stream")
+                }
+                resp = await self._get_client().post(url, headers=headers, data=data, files=files)
+            
             res = resp.json()
             if res.get("code") == 0:
                 file_key = res.get("data", {}).get("file_key", "")
