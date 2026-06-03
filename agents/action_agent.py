@@ -80,8 +80,8 @@ class ActionAgent:
             meeting_id=meeting_id,
             jira_client=self.jira,
             feishu_client=self.feishu,
-            enable_jira=job_config.enable_jira,
-            enable_feishu=job_config.enable_feishu,
+            jira_config=job_config.jira,
+            feishu_config=job_config.feishu,
         )
         output = ActionOutput(
             meeting_id=meeting_id,

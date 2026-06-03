@@ -18,7 +18,7 @@ from .meeting_schemas import (
     SpeakerMapItem,
     SpeakerMapping,
 )
-from .job_config import JobConfig
+from .job_config import JobConfig, ChannelConfig
 from .meeting_state import MeetingGraphState
 
 __all__ = [
@@ -37,4 +37,5 @@ __all__ = [
     "MeetingGraphState",
     "SpeakerMapItem",
     "SpeakerMapping",
+    "ChannelConfig",
 ]

@@ -13,7 +13,7 @@ from pathlib import Path
 from loguru import logger
 from typing import Any
 
-from schemas import SummaryOutput, ActionOutput, InsightOutput, DeliveryResult
+from schemas import SummaryOutput, ActionOutput, InsightOutput, DeliveryResult, ChannelConfig
 from services.reporting import (
     format_summary_markdown,
     format_actions_markdown,
@@ -36,8 +36,8 @@ class ReportDelivery:
         pdf_generated: bool,
         mindmap_path: Path | None,
         mindmap_generated: bool,
-        enable_feishu: bool = True,
-        enable_jira: bool = True,
+        feishu_config: ChannelConfig | None = None,
+        jira_config: ChannelConfig | None = None,
     ) -> list[DeliveryResult]:
         """
         向各个渠道（飞书、Jira 等）分发报告和资产。
@@ -45,28 +45,36 @@ class ReportDelivery:
         """
         results = []
 
-        # 1. 飞书分发（受 enable_feishu 开关控制）
-        if enable_feishu and self.feishu and getattr(self.feishu, "is_enabled", False):
+        # 兼容默认无配置
+        feishu_conf = feishu_config or ChannelConfig()
+        jira_conf = jira_config or ChannelConfig()
+
+        # 1. 飞书分发
+        if feishu_conf.enabled and self.feishu and getattr(self.feishu, "is_enabled", False):
             feishu_result = DeliveryResult(channel="feishu")
             asset_errors: list[str] = []
             try:
-                summary_md = format_summary_markdown(summary)
-                actions_md = format_actions_markdown(actions)
-                insights_md = format_insights_markdown(insights)
-                sent = await self.feishu.send_meeting_summary(
-                    title=summary.title or f"会议报告 - {meeting_id}",
-                    summary_md=summary_md,
-                    action_items_md=actions_md,
-                    insights_md=insights_md,
-                )
-                feishu_result.success = sent
-                feishu_result.targets = summary.participants
+                # 卡片消息分发
+                if feishu_conf.push_card:
+                    summary_md = format_summary_markdown(summary)
+                    actions_md = format_actions_markdown(actions)
+                    insights_md = format_insights_markdown(insights)
+                    sent = await self.feishu.send_meeting_summary(
+                        title=summary.title or f"会议报告 - {meeting_id}",
+                        summary_md=summary_md,
+                        action_items_md=actions_md,
+                        insights_md=insights_md,
+                    )
+                    feishu_result.success = sent
+                    feishu_result.targets = summary.participants
+                else:
+                    feishu_result.success = True  # 未开启卡片视为正常
 
                 # 上传并发送附件消息到飞书群聊
                 receive_id = getattr(self.feishu, "receive_id", "")
                 if receive_id:
                     logger.info(f"[ReportDelivery] 已配置飞书 receive_id ({receive_id}). 正在上传资产...")
-                    if pdf_generated and pdf_path:
+                    if feishu_conf.push_pdf and pdf_generated and pdf_path:
                         pdf_key = await self.feishu.upload_file(pdf_path, file_type="pdf")
                         if pdf_key:
                             pdf_sent = await self.feishu.send_file(receive_id=receive_id, file_key=pdf_key)
@@ -79,7 +87,7 @@ class ReportDelivery:
                             logger.error("[ReportDelivery] 飞书 PDF 上传失败")
                             asset_errors.append("pdf_upload_failed")
 
-                    if mindmap_generated and mindmap_path:
+                    if feishu_conf.push_mindmap and mindmap_generated and mindmap_path:
                         mm_key = await self.feishu.upload_file(mindmap_path, file_type="doc")
                         if mm_key:
                             mm_sent = await self.feishu.send_file(receive_id=receive_id, file_key=mm_key)
@@ -101,15 +109,15 @@ class ReportDelivery:
                 feishu_result.error = str(e)
             results.append(feishu_result)
 
-        # 2. Jira 分发（受 enable_jira 开关控制）
+        # 2. Jira 分发
         jira_issues = [item.jira_issue_key for item in actions.action_items if item.jira_issue_key]
-        if enable_jira and self.jira and getattr(self.jira, "is_enabled", False) and jira_issues:
+        if jira_conf.enabled and self.jira and getattr(self.jira, "is_enabled", False) and jira_issues:
             jira_result = DeliveryResult(channel="jira", targets=jira_issues)
             try:
                 logger.info(f"[ReportDelivery] Uploading attachments to Jira issues: {jira_issues}")
                 delivery_succeeded = True
                 for issue_key in jira_issues:
-                    if pdf_generated and pdf_path:
+                    if jira_conf.push_pdf and pdf_generated and pdf_path:
                         pdf_uploaded = await asyncio.to_thread(self.jira.add_attachment, issue_key, pdf_path)
                         if pdf_uploaded:
                             jira_result.artifacts.append(f"{issue_key}:{pdf_path.name}")
@@ -117,7 +125,7 @@ class ReportDelivery:
                             logger.error(f"[ReportDelivery] Failed to upload PDF attachment to Jira issue {issue_key}")
                             delivery_succeeded = False
                             
-                    if mindmap_generated and mindmap_path:
+                    if jira_conf.push_mindmap and mindmap_generated and mindmap_path:
                         mm_uploaded = await asyncio.to_thread(self.jira.add_attachment, issue_key, mindmap_path)
                         if mm_uploaded:
                             jira_result.artifacts.append(f"{issue_key}:{mindmap_path.name}")

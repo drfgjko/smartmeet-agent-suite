@@ -14,7 +14,7 @@ from typing import Any
 
 from loguru import logger
 
-from schemas import ActionItem, SyncStatus
+from schemas import ActionItem, SyncStatus, ChannelConfig
 
 
 async def sync_actions_to_external(
@@ -22,8 +22,8 @@ async def sync_actions_to_external(
     meeting_id: str,
     jira_client: Any = None,
     feishu_client: Any = None,
-    enable_jira: bool = True,
-    enable_feishu: bool = True,
+    jira_config: ChannelConfig | None = None,
+    feishu_config: ChannelConfig | None = None,
 ) -> tuple[list[ActionItem], SyncStatus]:
     """
     将行动项同步到外部系统（Jira / 飞书）。
@@ -33,9 +33,13 @@ async def sync_actions_to_external(
         - sync_status: 各平台同步状态
     """
     synced: list[ActionItem] = []
+    
+    # 兼容默认无配置
+    jira_enabled = jira_config.enabled if jira_config else True
+    feishu_enabled = feishu_config.enabled if feishu_config else True
 
     async def sync_single(item: ActionItem) -> ActionItem:
-        if enable_jira and jira_client and getattr(jira_client, "is_enabled", False):
+        if jira_enabled and jira_client and getattr(jira_client, "is_enabled", False):
             jira_result = await asyncio.to_thread(
                 jira_client.create_issue,
                 summary=f"[会议待办] {item.task}",
@@ -47,7 +51,7 @@ async def sync_actions_to_external(
             )
             item.jira_issue_key = jira_result["key"]
 
-        if enable_feishu and feishu_client and getattr(feishu_client, "is_enabled", False):
+        if feishu_enabled and feishu_client and getattr(feishu_client, "is_enabled", False):
             due_ts = None
             if item.deadline:
                 try:
@@ -67,8 +71,8 @@ async def sync_actions_to_external(
     synced = list(await asyncio.gather(*[sync_single(item) for item in items]))
 
     status = SyncStatus(
-        jira="enabled" if (enable_jira and jira_client and getattr(jira_client, "is_enabled", False)) else "disabled",
-        feishu="enabled" if (enable_feishu and feishu_client and getattr(feishu_client, "is_enabled", False)) else "disabled",
+        jira="enabled" if (jira_enabled and jira_client and getattr(jira_client, "is_enabled", False)) else "disabled",
+        feishu="enabled" if (feishu_enabled and feishu_client and getattr(feishu_client, "is_enabled", False)) else "disabled",
     )
 
     return synced, status

@@ -105,7 +105,11 @@ class FeishuClient:
             json=task_body,
         )
         data = resp.json()
-        task_id = data.get("data", {}).get("task", {}).get("id", "")
+        if data.get("code") != 0:
+            logger.error(f"Feishu create task failed: {data}")
+            return {"task_id": "", "data": data, "error": data.get("msg")}
+            
+        task_id = data.get("data", {}).get("task", {}).get("guid", data.get("data", {}).get("task", {}).get("id", ""))
         logger.info(f"Created Feishu task: {task_id} - {summary}")
         return {"task_id": task_id, "data": data}
 
@@ -119,7 +123,32 @@ class FeishuClient:
             f"---\n\n"
             f"**📊 会议洞察**\n{insights_md}"
         )
-        return await self.send_webhook_message(title=f"📝 会议纪要 | {title}", content=content)
+        
+        # 优先使用 Webhook 发送
+        if self.webhook_url:
+            return await self.send_webhook_message(title=f"📝 会议纪要 | {title}", content=content)
+            
+        # 如果没有 Webhook 但有 receive_id，则通过开放平台机器人 API 发送卡片
+        if self.receive_id:
+            card_data = {
+                "config": {"wide_screen_mode": True},
+                "header": {"title": {"tag": "plain_text", "content": f"📝 会议纪要 | {title}"}, "template": "blue"},
+                "elements": [{"tag": "markdown", "content": content}],
+            }
+            res = await self.send_message(
+                receive_id=self.receive_id, 
+                content=json.dumps(card_data, ensure_ascii=False), 
+                msg_type="interactive"
+            )
+            success = res.get("code") == 0
+            if not success:
+                logger.error(f"Feishu bot API failed to send card: {res}")
+            else:
+                logger.info(f"Feishu bot API successfully sent card to {self.receive_id}")
+            return success
+            
+        logger.warning("No webhook URL and no receive_id configured. Skipping summary card.")
+        return False
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))
     async def upload_file(self, file_path: str | Path, file_type: str = "pdf") -> str:

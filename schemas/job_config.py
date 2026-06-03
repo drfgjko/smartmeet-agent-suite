@@ -11,6 +11,14 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 
+class ChannelConfig(BaseModel):
+    """渠道级分发控制配置"""
+    enabled: bool = True          # 该渠道总开关
+    push_card: bool = True        # 是否推送总结卡片（飞书适用）
+    push_pdf: bool = True         # 是否上传 PDF 报告
+    push_mindmap: bool = True     # 是否上传思维导图
+
+
 class JobConfig(BaseModel):
     """
     任务级流程控制配置。
@@ -32,17 +40,9 @@ class JobConfig(BaseModel):
     enable_mindmap: bool = True        # 是否生成思维导图
     enable_delivery: bool = True       # 是否执行外部分发（飞书/Jira/Webhook）
 
-    # ── 外部分发通道开关 ──
-    enable_feishu: bool = True         # 是否推送飞书（受限于 .env 中是否配置凭证）
-    enable_jira: bool = True           # 是否同步 Jira
-
-    # ── 自定义凭证 (供前端动态传入) ──
-    feishu_app_id: str | None = None
-    feishu_app_secret: str | None = None
-    feishu_webhook_url: str | None = None
-    jira_server: str | None = None
-    jira_email: str | None = None
-    jira_api_token: str | None = None
+    # ── 外部分发通道配置 ──
+    feishu: ChannelConfig = Field(default_factory=ChannelConfig)
+    jira: ChannelConfig = Field(default_factory=ChannelConfig)
 
     # ── 通用 Webhook ──
     webhook_urls: list[str] = Field(

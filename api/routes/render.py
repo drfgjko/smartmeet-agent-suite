@@ -149,8 +149,8 @@ async def render_endpoint(request: RenderRequest):
                 pdf_generated=pdf_generated,
                 mindmap_path=mindmap_path,
                 mindmap_generated=mindmap_generated,
-                enable_feishu=job_config.enable_feishu,
-                enable_jira=job_config.enable_jira,
+                feishu_config=job_config.feishu,
+                jira_config=job_config.jira,
             )
 
             # 通用 Webhook

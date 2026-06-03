@@ -17,7 +17,7 @@ from fastapi import APIRouter, HTTPException
 from loguru import logger
 from pydantic import BaseModel, Field
 
-from schemas import JobConfig
+from schemas import JobConfig, ChannelConfig
 from services.integrations import create_llm_client, FeishuClient, JiraClient
 from services.checkpoint_service import CheckpointService
 from workflows.meeting_workflow import run_meeting_pipeline
@@ -71,8 +71,8 @@ async def analyze_endpoint(request: AnalyzeRequest):
         "enable_report_render": False,
         "enable_mindmap": False,
         "enable_delivery": False,
-        "enable_feishu": False,
-        "enable_jira": False,
+        "feishu": ChannelConfig(enabled=False),
+        "jira": ChannelConfig(enabled=False),
     })
 
     try:

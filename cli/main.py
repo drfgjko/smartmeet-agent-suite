@@ -24,7 +24,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-console = Console()
+console = Console(encoding="utf-8")
 
 API_BASE = os.environ.get("SMARTMEET_API", "http://127.0.0.1:8000")
 
@@ -97,6 +97,75 @@ def run(url, context, output, config):
         output=output,
         config=config,
     )
+
+@main.command()
+@click.argument("json_file", type=click.Path(exists=True))
+@click.option("--config", default=None, help="JobConfig JSON 字符串或本地 JSON 文件路径")
+def render(json_file, config):
+    """
+    跳过转录与分析阶段，直接传入已有的分析产物 (JSON)，测试渲染与分发环节。
+    """
+    console.print(Panel(
+        f"[bold cyan]SmartMeet CLI[/bold cyan] - 报告渲染与分发测试\n"
+        f"输入文件: {json_file}\n"
+        f"API 地址: {API_BASE}",
+        title="渲染流水线启动",
+    ))
+
+    try:
+        input_data = json.loads(Path(json_file).read_text(encoding="utf-8"))
+    except Exception as e:
+        console.print(f"[red]无法解析 JSON 文件:[/red] {e}")
+        sys.exit(1)
+
+    payload = {
+        "meeting_id": input_data.get("meeting_id", "test_meeting"),
+        "summary": input_data.get("summary", {}),
+        "actions": input_data.get("actions", {}),
+        "insights": input_data.get("insights", {}),
+    }
+
+    if config:
+        config_path = Path(config)
+        if config_path.exists() and config_path.is_file():
+            try:
+                payload["job_config"] = json.loads(config_path.read_text(encoding="utf-8"))
+            except Exception as e:
+                console.print(f"[yellow]无法读取配置文件 {config_path}: {e}[/yellow]")
+        else:
+            payload["job_config"] = json.loads(config)
+
+    render_url = f"{API_BASE}/api/v1/render"
+    
+    with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"), console=console) as progress:
+        task = progress.add_task("正在调用渲染与分发接口...", total=None)
+        try:
+            r = httpx.post(render_url, json=payload, timeout=120.0)
+            if r.status_code != 200:
+                raise Exception(f"HTTP {r.status_code} - {r.text}")
+            
+            res = r.json()
+            progress.update(task, description="[green]调用成功![/green]")
+        except Exception as e:
+            progress.update(task, description=f"[red]接口调用失败: {e}[/red]")
+            sys.exit(1)
+
+    console.print("\n[bold green]✅ 渲染与分发完成![/bold green]")
+    console.print(f"生成的资产: {json.dumps(res.get('artifacts', {}), indent=2, ensure_ascii=False)}")
+    
+    delivery_results = res.get("delivery_results", [])
+    if delivery_results:
+        console.print("\n[bold]分发结果:[/bold]")
+        for dr in delivery_results:
+            status = "✅ 成功" if dr.get("success") else "❌ 失败"
+            console.print(f"- 渠道 [cyan]{dr.get('channel')}[/cyan]: {status}")
+            if not dr.get("success"):
+                console.print(f"  错误信息: {dr.get('error')}")
+            if dr.get("artifacts"):
+                console.print(f"  成功推送的资产: {', '.join(dr.get('artifacts', []))}")
+    
+    if res.get("errors"):
+        console.print(Panel("\n".join(f"- {err}" for err in res.get("errors")), title="[bold red]执行过程中出现非致命错误[/bold red]", border_style="red"))
 
 def _run_process_stream(file_id=None, url=None, context=None, speakers=None, denoise=1, output=None, config=None):
     import time
