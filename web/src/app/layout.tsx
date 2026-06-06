@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
+import Sidebar from "@/components/layout/Sidebar";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "SmartMeet Agent Suite - 企业级多模态智能会议 Agent",
+  title: "SmartMeet Agent Suite - 会议协同 Agent",
   description:
-    "企业级多模态智能会议与全链路协同 Agent 解决方案。支持在线视频链接抓取、本地音视频上传、说话人分离、降噪增强，一键生成 PDF 讲义、思维导图与结构化会议纪要。",
+    "企业级多模态智能会议与全链路协同 Agent 解决方案。",
 };
 
 export default function RootLayout({
@@ -14,8 +15,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="zh-CN">
-      <body className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
-        {children}
+      <body className="min-h-screen flex bg-[#f4f4f0] text-black overflow-hidden font-sans selection:bg-[#ff90e8] selection:text-black">
+        <Sidebar />
+        <main className="flex-1 flex flex-col h-screen overflow-y-auto">
+          {children}
+        </main>
       </body>
     </html>
   );

@@ -6,8 +6,6 @@ type JobConfigPanelProps = {
   setNumSpeakers: (v: number | undefined) => void;
   denoiseLevel: number;
   setDenoiseLevel: (v: number) => void;
-  context: string;
-  setContext: (v: string) => void;
   jobConfig: JobConfigType;
   handleConfigChange: (key: keyof JobConfigType, value: any) => void;
 };
@@ -15,103 +13,103 @@ type JobConfigPanelProps = {
 export default function JobConfigPanel({
   numSpeakers, setNumSpeakers,
   denoiseLevel, setDenoiseLevel,
-  context, setContext,
   jobConfig, handleConfigChange
 }: JobConfigPanelProps) {
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   return (
-    <div className="mt-6 border-t border-[var(--border)] pt-4">
+    <div className="brutal-box p-6 bg-white">
       <button
         onClick={() => setShowAdvanced(!showAdvanced)}
-        className="text-sm font-semibold text-[var(--text-secondary)] hover:text-[var(--accent)] transition-colors flex items-center gap-1"
+        className="w-full text-left font-black text-lg flex justify-between items-center"
       >
-        {showAdvanced ? "▾ 收起配置" : "▸ 高级选项与节点配置"}
+        <span>高级配置与节点开关</span>
+        <span>{showAdvanced ? "[-]" : "[+]"}</span>
       </button>
+
       {showAdvanced && (
-        <div className="mt-4 grid gap-6 animate-in slide-in-from-top-2">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-[var(--text-secondary)] block">发言人数量</label>
+        <div className="mt-6 border-t-[3px] border-black pt-6 grid gap-6">
+          <div className="grid grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="text-xs font-black block">发言人数量</label>
               <input
                 type="number" min={1} max={20} value={numSpeakers || ""}
                 onChange={(e) => setNumSpeakers(e.target.value ? parseInt(e.target.value) : undefined)}
                 placeholder="自动推断"
-                className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] text-sm focus:outline-none focus:border-[var(--accent)]"
+                className="brutal-input py-2"
               />
             </div>
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-[var(--text-secondary)] block">降噪级别</label>
+            <div className="space-y-2">
+              <label className="text-xs font-black block">降噪级别</label>
               <select
                 value={denoiseLevel}
                 onChange={(e) => setDenoiseLevel(parseInt(e.target.value))}
-                className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] text-sm focus:outline-none focus:border-[var(--accent)]"
+                className="brutal-input py-2"
               >
                 <option value={0}>关闭 (0)</option>
-                <option value={1}>标准 (1)</option>
-                <option value={2}>强力 (2)</option>
+                <option value={1}>标准降噪 (1)</option>
+                <option value={2}>强力降噪 (2)</option>
               </select>
             </div>
           </div>
 
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-[var(--text-secondary)] block">会议补充上下文</label>
-            <textarea
-              value={context}
-              onChange={(e) => setContext(e.target.value)}
-              placeholder="可选：补充会议背景信息，帮助 AI 准确理解专有名词"
-              rows={2}
-              className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] text-sm focus:outline-none focus:border-[var(--accent)] resize-none"
-            />
-          </div>
-
-          <div className="p-4 rounded-xl border border-[var(--border)] bg-[var(--bg-primary)]">
-            <h4 className="text-sm font-bold mb-3 border-b border-[var(--border)] pb-2">AI 节点控制</h4>
-            <div className="flex flex-wrap gap-4 mb-4">
-              <label className="flex items-center gap-2 text-sm cursor-pointer hover:text-[var(--accent)]">
-                <input type="checkbox" checked={jobConfig.enable_summary} onChange={(e) => handleConfigChange("enable_summary", e.target.checked)} className="rounded" />
-                生成纪要
+          <div className="p-4 border-[3px] border-black bg-[#f4f4f0]">
+            <h4 className="text-sm font-black mb-4">执行节点控制</h4>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" checked={jobConfig.enable_summary} onChange={(e) => handleConfigChange("enable_summary", e.target.checked)} className="w-5 h-5 border-2 border-black accent-black" />
+                <span className="font-bold text-sm" title="调用 SummaryAgent">全文纪要 (AI)</span>
               </label>
-              <label className="flex items-center gap-2 text-sm cursor-pointer hover:text-[var(--accent)]">
-                <input type="checkbox" checked={jobConfig.enable_actions} onChange={(e) => handleConfigChange("enable_actions", e.target.checked)} className="rounded" />
-                提取待办
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" checked={jobConfig.enable_actions} onChange={(e) => handleConfigChange("enable_actions", e.target.checked)} className="w-5 h-5 border-2 border-black accent-black" />
+                <span className="font-bold text-sm" title="调用 ActionAgent">提取待办 (AI)</span>
               </label>
-              <label className="flex items-center gap-2 text-sm cursor-pointer hover:text-[var(--accent)]">
-                <input type="checkbox" checked={jobConfig.enable_insights} onChange={(e) => handleConfigChange("enable_insights", e.target.checked)} className="rounded" />
-                会议洞察
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" checked={jobConfig.enable_insights} onChange={(e) => handleConfigChange("enable_insights", e.target.checked)} className="w-5 h-5 border-2 border-black accent-black" />
+                <span className="font-bold text-sm" title="调用 InsightAgent">智能洞察 (AI)</span>
+              </label>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" checked={jobConfig.enable_report_render} onChange={(e) => handleConfigChange("enable_report_render", e.target.checked)} className="w-5 h-5 border-2 border-black accent-black" />
+                <span className="font-bold text-sm" title="生成 Markdown / PDF / HTML">排版渲染引擎</span>
+              </label>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" checked={jobConfig.enable_mindmap} onChange={(e) => handleConfigChange("enable_mindmap", e.target.checked)} className="w-5 h-5 border-2 border-black accent-black" />
+                <span className="font-bold text-sm" title="调用 MindMapService 生成脑图">生成思维导图</span>
+              </label>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" checked={jobConfig.enable_task_sync} onChange={(e) => handleConfigChange("enable_task_sync", e.target.checked)} className="w-5 h-5 border-2 border-black accent-black" />
+                <span className="font-bold text-sm" title="同步 Action 到 Jira/飞书任务">任务系统同步</span>
+              </label>
+              <label className="flex items-center gap-3 cursor-pointer col-span-2 sm:col-span-1">
+                <input type="checkbox" checked={jobConfig.enable_delivery} onChange={(e) => handleConfigChange("enable_delivery", e.target.checked)} className="w-5 h-5 border-2 border-black accent-black" />
+                <span className="font-bold text-sm" title="通过飞书/Jira分发报告">报告多端分发</span>
               </label>
             </div>
-
-            <h4 className="text-sm font-bold mb-3 mt-4 border-b border-[var(--border)] pb-2">外部集成配置 (可选)</h4>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 text-sm font-semibold cursor-pointer">
-                  <input type="checkbox" checked={jobConfig.enable_feishu} onChange={(e) => handleConfigChange("enable_feishu", e.target.checked)} className="rounded text-[var(--accent)]" />
-                  启用飞书推送
-                </label>
-                {jobConfig.enable_feishu && (
-                  <div className="grid grid-cols-2 gap-2 pl-6 animate-in fade-in">
-                    <input type="text" placeholder="Feishu App ID" value={jobConfig.feishu_app_id} onChange={(e) => handleConfigChange("feishu_app_id", e.target.value)} className="px-3 py-1.5 text-xs rounded border border-[var(--border)] bg-[var(--bg-secondary)]" />
-                    <input type="password" placeholder="Feishu App Secret" value={jobConfig.feishu_app_secret} onChange={(e) => handleConfigChange("feishu_app_secret", e.target.value)} className="px-3 py-1.5 text-xs rounded border border-[var(--border)] bg-[var(--bg-secondary)]" />
-                    <input type="text" placeholder="Webhook URL (可选)" value={jobConfig.feishu_webhook_url} onChange={(e) => handleConfigChange("feishu_webhook_url", e.target.value)} className="col-span-2 px-3 py-1.5 text-xs rounded border border-[var(--border)] bg-[var(--bg-secondary)]" />
-                  </div>
-                )}
+            
+            {/* 分发细粒度配置（当开启分发时出现） */}
+            {jobConfig.enable_delivery && (
+              <div className="mt-4 pt-4 border-t-[3px] border-black animate-in fade-in">
+                <h5 className="text-sm font-black mb-3">飞书机器人推送选项：</h5>
+                <div className="flex flex-wrap gap-4 ml-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={jobConfig.feishu.enabled} onChange={(e) => handleConfigChange("feishu", { ...jobConfig.feishu, enabled: e.target.checked })} className="w-4 h-4 border-2 border-black accent-black" />
+                    <span className="font-bold text-xs">启用飞书</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer" style={{ opacity: jobConfig.feishu.enabled ? 1 : 0.4 }}>
+                    <input type="checkbox" disabled={!jobConfig.feishu.enabled} checked={jobConfig.feishu.push_card} onChange={(e) => handleConfigChange("feishu", { ...jobConfig.feishu, push_card: e.target.checked })} className="w-4 h-4 border-2 border-black accent-black" />
+                    <span className="font-bold text-xs">推送总结卡片</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer" style={{ opacity: jobConfig.feishu.enabled ? 1 : 0.4 }}>
+                    <input type="checkbox" disabled={!jobConfig.feishu.enabled} checked={jobConfig.feishu.push_pdf} onChange={(e) => handleConfigChange("feishu", { ...jobConfig.feishu, push_pdf: e.target.checked })} className="w-4 h-4 border-2 border-black accent-black" />
+                    <span className="font-bold text-xs">附带 PDF 报告</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer" style={{ opacity: jobConfig.feishu.enabled ? 1 : 0.4 }}>
+                    <input type="checkbox" disabled={!jobConfig.feishu.enabled} checked={jobConfig.feishu.push_mindmap} onChange={(e) => handleConfigChange("feishu", { ...jobConfig.feishu, push_mindmap: e.target.checked })} className="w-4 h-4 border-2 border-black accent-black" />
+                    <span className="font-bold text-xs">附带思维导图</span>
+                  </label>
+                </div>
               </div>
-              
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 text-sm font-semibold cursor-pointer">
-                  <input type="checkbox" checked={jobConfig.enable_jira} onChange={(e) => handleConfigChange("enable_jira", e.target.checked)} className="rounded text-[var(--accent)]" />
-                  启用 Jira 同步
-                </label>
-                {jobConfig.enable_jira && (
-                  <div className="grid grid-cols-2 gap-2 pl-6 animate-in fade-in">
-                    <input type="text" placeholder="Jira Server URL" value={jobConfig.jira_server} onChange={(e) => handleConfigChange("jira_server", e.target.value)} className="col-span-2 px-3 py-1.5 text-xs rounded border border-[var(--border)] bg-[var(--bg-secondary)]" />
-                    <input type="text" placeholder="Jira Email" value={jobConfig.jira_email} onChange={(e) => handleConfigChange("jira_email", e.target.value)} className="px-3 py-1.5 text-xs rounded border border-[var(--border)] bg-[var(--bg-secondary)]" />
-                    <input type="password" placeholder="Jira API Token" value={jobConfig.jira_api_token} onChange={(e) => handleConfigChange("jira_api_token", e.target.value)} className="px-3 py-1.5 text-xs rounded border border-[var(--border)] bg-[var(--bg-secondary)]" />
-                  </div>
-                )}
-              </div>
-            </div>
+            )}
           </div>
         </div>
       )}
