@@ -243,16 +243,8 @@ async def run_offline_pipeline(
             job_config = JobConfig()
 
         llm_client = create_llm_client()
-        jira_client = JiraClient(
-            server=job_config.jira_server,
-            email=job_config.jira_email,
-            api_token=job_config.jira_api_token
-        )
-        feishu_client = FeishuClient(
-            app_id=job_config.feishu_app_id,
-            app_secret=job_config.feishu_app_secret,
-            webhook_url=job_config.feishu_webhook_url
-        )
+        jira_client = JiraClient()
+        feishu_client = FeishuClient()
 
         final_state = await run_meeting_pipeline(
             meeting_id=meeting_id,
@@ -338,9 +330,35 @@ async def run_offline_pipeline(
                 jira_config=job_config.jira,
             )
 
+        # 4. 任务同步（创建飞书待办 / Jira Issue）
+        if job_config.enable_task_sync and actions:
+            from services.integrations import sync_actions_to_external
+            from schemas import ActionOutput
+            action_obj = ActionOutput(**actions) if isinstance(actions, dict) else actions
+            await sync_actions_to_external(
+                items=action_obj.action_items,
+                meeting_id=meeting_id,
+                jira_client=jira_client,
+                feishu_client=feishu_client,
+                jira_config=job_config.jira,
+                feishu_config=job_config.feishu,
+            )
+
         # 将生成的路径整理到 output_files 和 content 中
         content = ""
         output_files = {}
+
+        # 持久化音频文件
+        if not is_transcript_input and hasattr(pre_result, 'audio_path') and pre_result.audio_path and pre_result.audio_path.exists():
+            try:
+                import shutil
+                reports_dir = find_project_root() / "reports" / meeting_id
+                reports_dir.mkdir(parents=True, exist_ok=True)
+                audio_dest = reports_dir / "audio.wav"
+                shutil.copy2(str(pre_result.audio_path), str(audio_dest))
+                output_files["audio"] = str(audio_dest)
+            except Exception as e:
+                logger.error(f"持久化音频文件失败: {e}")
         if md_path and md_path.exists():
             try:
                 content = md_path.read_text(encoding="utf-8")
