@@ -24,7 +24,8 @@ from workflows.meeting_workflow import run_meeting_pipeline
 from services.integrations import create_llm_client, FeishuClient, JiraClient
 from schemas import JobConfig
 from services.checkpoint_service import CheckpointService
-from utils import find_project_root, serialize_agent_outputs, create_fallback_diarization, parse_transcript_file
+from utils import find_project_root, dump_outputs_for_json, create_fallback_diarization, parse_transcript_file
+from schemas import SummaryOutput, ActionOutput, InsightOutput
 
 _checkpoint = CheckpointService()
 ProgressCallback = Callable[[str, dict[str, Any]], Awaitable[None]]
@@ -253,12 +254,14 @@ async def run_offline_pipeline(
             job_config=job_config,
         )
 
-        # Step 9: 组装输出结果
-        outputs = serialize_agent_outputs(final_state)
+        # Step 9: 直接从 LangGraph state 取 Pydantic 对象（不经过序列化中转）
+        # Service 层统一接收 Pydantic 对象，只在最终 JSON 响应体时才序列化
+        summary: SummaryOutput | None = final_state.get("summary")
+        actions: ActionOutput | None = final_state.get("actions")
+        insights: InsightOutput | None = final_state.get("insights")
 
         # ── 图后处理：渲染 + 自动分发报告 ──
         from services import ReportComposer, ReportRenderer, MindMapService, ReportDelivery
-        from schemas import FollowUpArtifacts
 
         md_path = None
         pdf_path = None
@@ -267,10 +270,6 @@ async def run_offline_pipeline(
         mindmap_path = None
         mindmap_generated = False
         final_report_md = ""
-        
-        summary = outputs.get("summary")
-        actions = outputs.get("actions")
-        insights = outputs.get("insights")
 
         # 1. 报告渲染
         if job_config.enable_report_render:
@@ -283,7 +282,7 @@ async def run_offline_pipeline(
                 insights=insights,
                 keyframes=frames_result,
             )
-            title = summary.get("title") if summary else None
+            title = summary.title if summary else None
             md_path, pdf_path, html_path, pdf_generated = await renderer.render_report(
                 meeting_id=meeting_id,
                 final_report_md=final_report_md,
@@ -303,7 +302,7 @@ async def run_offline_pipeline(
                     insights=insights,
                     keyframes=frames_result,
                 )
-            title = summary.get("title") if summary else None
+            title = summary.title if summary else None
             mindmap_path, mindmap_generated = await mindmap_service.generate_and_save_mindmap(
                 meeting_id=meeting_id,
                 final_report_md=final_report_md,
@@ -313,13 +312,11 @@ async def run_offline_pipeline(
         # 3. 自动分发报告（仅卡片/PDF/导图，不含任务同步）
         if job_config.enable_delivery:
             delivery = ReportDelivery(feishu_client=feishu_client, jira_client=jira_client)
-            # 需要把 dict 转换为 Pydantic 对象，或者依赖 Pydantic 自动转型
-            from schemas import SummaryOutput, ActionOutput, InsightOutput
             await delivery.deliver_report(
                 meeting_id=meeting_id,
-                summary=SummaryOutput(**summary) if summary else SummaryOutput(),
-                actions=ActionOutput(**actions) if actions else ActionOutput(),
-                insights=InsightOutput(**insights) if insights else InsightOutput(),
+                summary=summary or SummaryOutput(),
+                actions=actions or ActionOutput(),
+                insights=insights or InsightOutput(),
                 pdf_path=pdf_path,
                 pdf_generated=pdf_generated,
                 mindmap_path=mindmap_path,
@@ -331,10 +328,8 @@ async def run_offline_pipeline(
         # 4. 任务同步（创建飞书待办 / Jira Issue）
         if job_config.enable_task_sync and actions:
             from services.integrations import sync_actions_to_external
-            from schemas import ActionOutput
-            action_obj = ActionOutput(**actions) if isinstance(actions, dict) else actions
             await sync_actions_to_external(
-                items=action_obj.action_items,
+                items=actions.action_items,
                 meeting_id=meeting_id,
                 jira_client=jira_client,
                 feishu_client=feishu_client,
@@ -375,9 +370,7 @@ async def run_offline_pipeline(
             reports_dir = find_project_root() / "reports" / meeting_id
             reports_dir.mkdir(parents=True, exist_ok=True)
         
-            summary_title = ""
-            if outputs.get("summary"):
-                summary_title = outputs["summary"].get("title", "")
+            summary_title = summary.title if summary else ""
             
             import re
             safe_title = re.sub(r'[^\w\u4e00-\u9fa5\-]', '_', summary_title).strip().strip("_") if summary_title else ""
@@ -408,10 +401,7 @@ async def run_offline_pipeline(
             logger.error(f"[ApplicationService] 最终生成转录文本文件失败: {tx_err}")
 
         # 标题优先使用 Summary Agent 生成的主题，否则使用默认值
-        summary_title = ""
-        if outputs.get("summary"):
-            summary_title = outputs["summary"].get("title", "")
-        title = summary_title or f"会议报告 - {meeting_id}"
+        title = (summary.title if summary else "") or f"会议报告 - {meeting_id}"
 
         # Step 10: 组装完整响应结构
         final_result = {
@@ -425,9 +415,10 @@ async def run_offline_pipeline(
             "diarized_transcript": diar_result.transcript_with_speakers,
             "content": content,
             "output_files": output_files,
-            "summary": outputs.get("summary", {}),
-            "actions": outputs.get("actions", {}),
-            "insights": outputs.get("insights", {}),
+            # 在最终 JSON 响应体组装时才序列化 Pydantic 对象
+            "summary": summary.model_dump() if summary else {},
+            "actions": actions.model_dump() if actions else {},
+            "insights": insights.model_dump() if insights else {},
             "keyframes": [
                 {
                     "path": str(frame.path),

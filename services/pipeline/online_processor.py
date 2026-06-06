@@ -18,7 +18,7 @@ from services.media_engine import (
 )
 from workflows.meeting_workflow import run_meeting_pipeline
 from services.integrations import create_llm_client, FeishuClient, JiraClient
-from utils import find_project_root, serialize_agent_outputs, create_fallback_diarization
+from utils import find_project_root, dump_outputs_for_json, create_fallback_diarization
 
 ProgressCallback = Callable[[str, dict[str, Any]], Awaitable[None]]
 
@@ -120,7 +120,8 @@ async def emit_agent_events(final_state: Any, emit: ProgressCallback) -> None:
         final_state: 工作流最终状态对象
         emit: 进度回调函数，接收 (stage_name, data_dict)
     """
-    outputs = serialize_agent_outputs(final_state)
+    # 此处是正确用法：将 Pydantic 对象序列化为 dict 推送给 WebSocket 客户端
+    outputs = dump_outputs_for_json(final_state)
 
     # 依次推送四个 Agent 的输出
     for key in ("summary", "actions", "insights", "followup"):

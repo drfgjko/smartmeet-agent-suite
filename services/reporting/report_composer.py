@@ -62,6 +62,7 @@ class ReportComposer:
         进行上游报告格式化、关键帧标准化，以及大模型智能融合排版，返回排版后的Markdown正文和标准化关键帧列表。
         """
         # 1. 格式化基础纪要、行动项和洞察
+        # 调用方（offline_processor）保证传入 Pydantic 对象，此处直接使用
         summary_md = format_summary_markdown(summary)
         actions_md = format_actions_markdown(actions)
         insights_md = format_insights_markdown(insights)
