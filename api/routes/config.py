@@ -18,8 +18,19 @@ class ConfigPayload(BaseModel):
     llm_base_url: str | None = None
     
     # ASR Settings
-    asr_device: str | None = None
+    asr_engine: str | None = None
+    whisper_device: str | None = None
+    whisper_model_size: str | None = None
+    whisper_language: str | None = None
+    hf_token: str | None = None
+    asr_api_key: str | None = None
+    asr_base_url: str | None = None
+    asr_model: str | None = None
     
+    # Download Settings
+    noteking_proxy: str | None = None
+    bilibili_sessdata: str | None = None
+
     # Feishu Settings
     feishu_app_id: str | None = None
     feishu_app_secret: str | None = None
@@ -53,7 +64,16 @@ async def get_config():
         "llm_api_key": _mask_secret(env_dict.get("LLM_API_KEY", "")),
         "llm_model": env_dict.get("LLM_MODEL", ""),
         "llm_base_url": env_dict.get("LLM_BASE_URL", ""),
-        "asr_device": env_dict.get("ASR_DEVICE", ""),
+        "asr_engine": env_dict.get("ASR_ENGINE", "auto"),
+        "whisper_device": env_dict.get("WHISPER_DEVICE", "auto"),
+        "whisper_model_size": env_dict.get("WHISPER_MODEL_SIZE", "base"),
+        "whisper_language": env_dict.get("WHISPER_LANGUAGE", "zh"),
+        "hf_token": _mask_secret(env_dict.get("HF_TOKEN", "")),
+        "asr_api_key": _mask_secret(env_dict.get("ASR_API_KEY", "")),
+        "asr_base_url": env_dict.get("ASR_BASE_URL", ""),
+        "asr_model": env_dict.get("ASR_MODEL", "whisper-1"),
+        "noteking_proxy": env_dict.get("NOTEKING_PROXY", ""),
+        "bilibili_sessdata": _mask_secret(env_dict.get("BILIBILI_SESSDATA", "")),
         "feishu_app_id": env_dict.get("FEISHU_APP_ID", ""),
         "feishu_app_secret": _mask_secret(env_dict.get("FEISHU_APP_SECRET", "")),
         "feishu_receive_id": env_dict.get("FEISHU_RECEIVE_ID", ""),
@@ -75,7 +95,16 @@ async def update_config(payload: ConfigPayload):
         "LLM_API_KEY": payload.llm_api_key,
         "LLM_MODEL": payload.llm_model,
         "LLM_BASE_URL": payload.llm_base_url,
-        "ASR_DEVICE": payload.asr_device,
+        "ASR_ENGINE": payload.asr_engine,
+        "WHISPER_DEVICE": payload.whisper_device,
+        "WHISPER_MODEL_SIZE": payload.whisper_model_size,
+        "WHISPER_LANGUAGE": payload.whisper_language,
+        "HF_TOKEN": payload.hf_token,
+        "ASR_API_KEY": payload.asr_api_key,
+        "ASR_BASE_URL": payload.asr_base_url,
+        "ASR_MODEL": payload.asr_model,
+        "NOTEKING_PROXY": payload.noteking_proxy,
+        "BILIBILI_SESSDATA": payload.bilibili_sessdata,
         "FEISHU_APP_ID": payload.feishu_app_id,
         "FEISHU_APP_SECRET": payload.feishu_app_secret,
         "FEISHU_RECEIVE_ID": payload.feishu_receive_id,

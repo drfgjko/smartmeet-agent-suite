@@ -33,7 +33,6 @@ async def run_offline_pipeline(
     input_path: Path | None,
     url: str | None,
     meeting_id: str,
-    context: str | None = None,
     num_speakers: int | None = None,
     denoise_level: int = 1,
     extract_frames: bool = True,
@@ -56,7 +55,6 @@ async def run_offline_pipeline(
         input_path: 本地音视频文件路径（与 url 二选一）
         url: 在线视频链接（与 input_path 二选一）
         meeting_id: 会议唯一标识符
-        context: 补充上下文描述，帮助 AI 更准确理解内容
         num_speakers: 预设发言人数，不提供则自动检测
         denoise_level: 降噪强度，取值 0-3，默认 1
         extract_frames: 是否提取关键帧（仅对视频生效），默认 True
