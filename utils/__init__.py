@@ -6,14 +6,15 @@
 - text_parser: 文本解析工具
 """
 
-from .serialization import model_dump_if_needed, serialize_agent_outputs
+from .serialization import model_dump_if_needed, dump_outputs_for_json
 from .file_system import find_project_root
 from .text_parser import parse_transcript_file, create_fallback_diarization
 
 __all__ = [
     "model_dump_if_needed",
-    "serialize_agent_outputs",
+    "dump_outputs_for_json",
     "find_project_root",
     "parse_transcript_file",
     "create_fallback_diarization",
 ]
+
