@@ -90,8 +90,10 @@ async def run_offline_pipeline(
 
             try:
                 # 优先尝试下载完整视频
-                logger.info(f"正在从 URL 下载视频: {url}")
-                downloaded_file = await asyncio.to_thread(download_video, url, download_dir)
+                logger.info(f"正在从 URL 下载视频: {url} (最高限制为 480P/720P 以优化带宽)")
+                # 限制最高分辨率为 480P 或 720P，节约下载时间和带宽，且完全满足音频提取与关键帧 OCR 需求
+                quality_str = "bestvideo[height<=720]+bestaudio/best[height<=720]/best"
+                downloaded_file = await asyncio.to_thread(download_video, url, download_dir, quality_str)
                 actual_path = Path(downloaded_file)
             except Exception as err:
                 # 视频下载失败时降级为仅下载音频（YouTube Reject 等场景）
