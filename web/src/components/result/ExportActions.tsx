@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import { Result } from "../../types";
+import BrutalCheckbox from "../ui/BrutalCheckbox";
+import BrutalButton from "../ui/BrutalButton";
 
 type ExportActionsProps = {
   result: Result;
@@ -104,74 +106,55 @@ export default function ExportActions({ result, API_BASE }: ExportActionsProps) 
 
       <div className="grid grid-cols-2 gap-3">
         {/* 复制纪要 */}
-        <ActionBtn
+        <BrutalButton
           id="export-copy-btn"
           onClick={handleCopy}
           accent="#22d3ee"
           disabled={!content}
         >
           {copyState === "ok" ? "已复制!" : copyState === "error" ? "失败" : "复制纪要"}
-        </ActionBtn>
+        </BrutalButton>
 
         {/* 下载 Markdown */}
-        <ActionBtn
+        <BrutalButton
           id="export-md-btn"
           onClick={handleDownloadMd}
           accent="#ffc900"
           disabled={!content}
         >
           下载 MD
-        </ActionBtn>
+        </BrutalButton>
 
         {/* 下载 PDF */}
-        {hasPdf ? (
-          <a
-            id="export-pdf-link"
-            href={buildFileUrl(output_files!.pdf!)}
-            target="_blank"
-            rel="noreferrer"
-            className="export-action-btn"
-            style={{ "--accent": "#ff90e8" } as React.CSSProperties}
-          >
-            下载 PDF
-          </a>
-        ) : (
-          <ActionBtn id="export-pdf-btn" disabled accent="#ff90e8">下载 PDF</ActionBtn>
-        )}
+        <BrutalButton
+          id="export-pdf-btn"
+          href={hasPdf ? buildFileUrl(output_files!.pdf!) : undefined}
+          disabled={!hasPdf}
+          accent="#ff90e8"
+        >
+          下载 PDF
+        </BrutalButton>
 
         {/* 在线 HTML */}
-        {hasHtml ? (
-          <a
-            id="export-html-link"
-            href={buildFileUrl(output_files!.html!)}
-            target="_blank"
-            rel="noreferrer"
-            className="export-action-btn"
-            style={{ "--accent": "#c084fc" } as React.CSSProperties}
-          >
-            HTML 报告
-          </a>
-        ) : (
-          <ActionBtn id="export-html-btn" disabled accent="#c084fc">HTML 报告</ActionBtn>
-        )}
+        <BrutalButton
+          id="export-html-btn"
+          href={hasHtml ? buildFileUrl(output_files!.html!) : undefined}
+          disabled={!hasHtml}
+          accent="#c084fc"
+        >
+          HTML 报告
+        </BrutalButton>
 
         {/* 思维导图 */}
-        {hasMindmap ? (
-          <a
-            id="export-mindmap-link"
-            href={buildFileUrl(output_files!.mindmap!)}
-            target="_blank"
-            rel="noreferrer"
-            className="export-action-btn col-span-2"
-            style={{ "--accent": "#4ade80" } as React.CSSProperties}
-          >
-            思维导图
-          </a>
-        ) : (
-          <ActionBtn id="export-mindmap-btn" disabled accent="#4ade80" className="col-span-2">
-            思维导图
-          </ActionBtn>
-        )}
+        <BrutalButton
+          id="export-mindmap-btn"
+          href={hasMindmap ? buildFileUrl(output_files!.mindmap!) : undefined}
+          disabled={!hasMindmap}
+          accent="#4ade80"
+          className="col-span-2"
+        >
+          思维导图
+        </BrutalButton>
       </div>
 
       <div className="mt-4 pt-4 border-t-[2px] border-black/10">
@@ -180,41 +163,32 @@ export default function ExportActions({ result, API_BASE }: ExportActionsProps) 
         </h3>
         
         {/* 飞书推送配置项 */}
-        <div className="flex gap-4 mb-3 text-[10px] font-bold text-gray-600">
-          <label className="flex items-center gap-1.5 cursor-pointer hover:text-black">
-            <input 
-              type="checkbox" 
-              className="accent-black w-3 h-3 border-black border-[1.5px]" 
-              checked={feishuConfig.push_card}
-              onChange={(e) => setFeishuConfig(p => ({ ...p, push_card: e.target.checked }))}
-            />
-            推送总结卡片
-          </label>
-          <label className="flex items-center gap-1.5 cursor-pointer hover:text-black">
-            <input 
-              type="checkbox" 
-              className="accent-black w-3 h-3 border-black border-[1.5px]"
-              checked={!!output_files?.pdf && feishuConfig.push_pdf}
-              onChange={(e) => setFeishuConfig(p => ({ ...p, push_pdf: e.target.checked }))}
-              disabled={!output_files?.pdf}
-            />
-            附带 PDF
-          </label>
-          <label className="flex items-center gap-1.5 cursor-pointer hover:text-black">
-            <input 
-              type="checkbox" 
-              className="accent-black w-3 h-3 border-black border-[1.5px]"
-              checked={!!output_files?.mindmap && feishuConfig.push_mindmap}
-              onChange={(e) => setFeishuConfig(p => ({ ...p, push_mindmap: e.target.checked }))}
-              disabled={!output_files?.mindmap}
-            />
-            附带导图
-          </label>
+        <div className="flex gap-4 mb-3 text-gray-600">
+          <BrutalCheckbox
+            size="sm"
+            label="推送总结卡片"
+            checked={feishuConfig.push_card}
+            onChange={(checked) => setFeishuConfig(p => ({ ...p, push_card: checked }))}
+          />
+          <BrutalCheckbox
+            size="sm"
+            label="附带 PDF"
+            checked={!!output_files?.pdf && feishuConfig.push_pdf}
+            onChange={(checked) => setFeishuConfig(p => ({ ...p, push_pdf: checked }))}
+            disabled={!output_files?.pdf}
+          />
+          <BrutalCheckbox
+            size="sm"
+            label="附带导图"
+            checked={!!output_files?.mindmap && feishuConfig.push_mindmap}
+            onChange={(checked) => setFeishuConfig(p => ({ ...p, push_mindmap: checked }))}
+            disabled={!output_files?.mindmap}
+          />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           {/* 推送飞书 */}
-          <ActionBtn
+          <BrutalButton
             id="export-feishu-btn"
             onClick={() => handleManualDeliver("feishu")}
             accent="#4ade80"
@@ -227,10 +201,10 @@ export default function ExportActions({ result, API_BASE }: ExportActionsProps) 
               : feishuState === "error"
               ? "推送失败"
               : "🚀 推送飞书卡片"}
-          </ActionBtn>
+          </BrutalButton>
 
           {/* 同步 Jira */}
-          <ActionBtn
+          <BrutalButton
             id="export-jira-btn"
             onClick={() => handleManualDeliver("jira")}
             accent="#22d3ee"
@@ -243,43 +217,11 @@ export default function ExportActions({ result, API_BASE }: ExportActionsProps) 
               : jiraState === "error"
               ? "同步失败"
               : "➕ 同步待办至 Jira"}
-          </ActionBtn>
+          </BrutalButton>
         </div>
       </div>
     </div>
   );
 }
 
-/** 通用操作按钮 */
-function ActionBtn({
-  id,
-  children,
-  onClick,
-  disabled,
-  accent,
-  className = "",
-}: {
-  id: string;
-  children: React.ReactNode;
-  onClick?: () => void;
-  disabled?: boolean;
-  accent: string;
-  className?: string;
-}) {
-  return (
-    <button
-      id={id}
-      onClick={onClick}
-      disabled={disabled}
-      className={`text-xs font-black py-2.5 px-3 border-[2px] border-black transition-all
-        shadow-[2px_2px_0px_rgba(0,0,0,1)]
-        hover:shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:translate-x-[-2px] hover:translate-y-[-2px]
-        active:shadow-none active:translate-x-0 active:translate-y-0
-        disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-[2px_2px_0px_rgba(0,0,0,1)] disabled:hover:translate-x-0 disabled:hover:translate-y-0
-        ${className}`}
-      style={{ backgroundColor: accent }}
-    >
-      {children}
-    </button>
-  );
-}
+

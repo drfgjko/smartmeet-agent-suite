@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { Result, InputMode, JobConfigType, ChannelConfig } from '../types';
+import { Result, InputMode, JobConfigType } from '../types';
 import JobConfigPanel from './JobConfigPanel';
 import FileInput from './FileInput';
 import ExecutionTimeline from './ExecutionTimeline';

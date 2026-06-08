@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { JobConfigType } from '../types';
+import BrutalCheckbox from './ui/BrutalCheckbox';
 
 type JobConfigPanelProps = {
   numSpeakers: number | undefined;
@@ -56,34 +57,13 @@ export default function JobConfigPanel({
           <div className="p-4 border-[3px] border-black bg-[#f4f4f0]">
             <h4 className="text-sm font-black mb-4">执行节点控制</h4>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input type="checkbox" checked={jobConfig.enable_summary} onChange={(e) => handleConfigChange("enable_summary", e.target.checked)} className="w-5 h-5 border-2 border-black accent-black" />
-                <span className="font-bold text-sm" title="调用 SummaryAgent">全文纪要 (AI)</span>
-              </label>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input type="checkbox" checked={jobConfig.enable_actions} onChange={(e) => handleConfigChange("enable_actions", e.target.checked)} className="w-5 h-5 border-2 border-black accent-black" />
-                <span className="font-bold text-sm" title="调用 ActionAgent">提取待办 (AI)</span>
-              </label>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input type="checkbox" checked={jobConfig.enable_insights} onChange={(e) => handleConfigChange("enable_insights", e.target.checked)} className="w-5 h-5 border-2 border-black accent-black" />
-                <span className="font-bold text-sm" title="调用 InsightAgent">智能洞察 (AI)</span>
-              </label>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input type="checkbox" checked={jobConfig.enable_report_render} onChange={(e) => handleConfigChange("enable_report_render", e.target.checked)} className="w-5 h-5 border-2 border-black accent-black" />
-                <span className="font-bold text-sm" title="生成 Markdown / PDF / HTML">排版渲染引擎</span>
-              </label>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input type="checkbox" checked={jobConfig.enable_mindmap} onChange={(e) => handleConfigChange("enable_mindmap", e.target.checked)} className="w-5 h-5 border-2 border-black accent-black" />
-                <span className="font-bold text-sm" title="调用 MindMapService 生成脑图">生成思维导图</span>
-              </label>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input type="checkbox" checked={jobConfig.enable_task_sync} onChange={(e) => handleConfigChange("enable_task_sync", e.target.checked)} className="w-5 h-5 border-2 border-black accent-black" />
-                <span className="font-bold text-sm" title="同步 Action 到 Jira/飞书任务">任务系统同步</span>
-              </label>
-              <label className="flex items-center gap-3 cursor-pointer col-span-2 sm:col-span-1">
-                <input type="checkbox" checked={jobConfig.enable_delivery} onChange={(e) => handleConfigChange("enable_delivery", e.target.checked)} className="w-5 h-5 border-2 border-black accent-black" />
-                <span className="font-bold text-sm" title="通过飞书/Jira分发报告">报告多端分发</span>
-              </label>
+              <BrutalCheckbox size="lg" checked={jobConfig.enable_summary} onChange={(c) => handleConfigChange("enable_summary", c)} label="全文纪要 (AI)" title="调用 SummaryAgent" />
+              <BrutalCheckbox size="lg" checked={jobConfig.enable_actions} onChange={(c) => handleConfigChange("enable_actions", c)} label="提取待办 (AI)" title="调用 ActionAgent" />
+              <BrutalCheckbox size="lg" checked={jobConfig.enable_insights} onChange={(c) => handleConfigChange("enable_insights", c)} label="智能洞察 (AI)" title="调用 InsightAgent" />
+              <BrutalCheckbox size="lg" checked={jobConfig.enable_report_render} onChange={(c) => handleConfigChange("enable_report_render", c)} label="排版渲染引擎" title="生成 Markdown / PDF / HTML" />
+              <BrutalCheckbox size="lg" checked={jobConfig.enable_mindmap} onChange={(c) => handleConfigChange("enable_mindmap", c)} label="生成思维导图" title="调用 MindMapService 生成脑图" />
+              <BrutalCheckbox size="lg" checked={jobConfig.enable_task_sync} onChange={(c) => handleConfigChange("enable_task_sync", c)} label="任务系统同步" title="同步 Action 到 Jira/飞书任务" />
+              <BrutalCheckbox size="lg" checked={jobConfig.enable_delivery} onChange={(c) => handleConfigChange("enable_delivery", c)} label="报告多端分发" title="通过飞书/Jira分发报告" className="col-span-2 sm:col-span-1" />
             </div>
             
             {/* 分发细粒度配置（当开启分发时出现） */}
@@ -91,22 +71,10 @@ export default function JobConfigPanel({
               <div className="mt-4 pt-4 border-t-[3px] border-black animate-in fade-in">
                 <h5 className="text-sm font-black mb-3">飞书机器人推送选项：</h5>
                 <div className="flex flex-wrap gap-4 ml-2">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={jobConfig.feishu.enabled} onChange={(e) => handleConfigChange("feishu", { ...jobConfig.feishu, enabled: e.target.checked })} className="w-4 h-4 border-2 border-black accent-black" />
-                    <span className="font-bold text-xs">启用飞书</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer" style={{ opacity: jobConfig.feishu.enabled ? 1 : 0.4 }}>
-                    <input type="checkbox" disabled={!jobConfig.feishu.enabled} checked={jobConfig.feishu.push_card} onChange={(e) => handleConfigChange("feishu", { ...jobConfig.feishu, push_card: e.target.checked })} className="w-4 h-4 border-2 border-black accent-black" />
-                    <span className="font-bold text-xs">推送总结卡片</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer" style={{ opacity: jobConfig.feishu.enabled ? 1 : 0.4 }}>
-                    <input type="checkbox" disabled={!jobConfig.feishu.enabled} checked={jobConfig.feishu.push_pdf} onChange={(e) => handleConfigChange("feishu", { ...jobConfig.feishu, push_pdf: e.target.checked })} className="w-4 h-4 border-2 border-black accent-black" />
-                    <span className="font-bold text-xs">附带 PDF 报告</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer" style={{ opacity: jobConfig.feishu.enabled ? 1 : 0.4 }}>
-                    <input type="checkbox" disabled={!jobConfig.feishu.enabled} checked={jobConfig.feishu.push_mindmap} onChange={(e) => handleConfigChange("feishu", { ...jobConfig.feishu, push_mindmap: e.target.checked })} className="w-4 h-4 border-2 border-black accent-black" />
-                    <span className="font-bold text-xs">附带思维导图</span>
-                  </label>
+                  <BrutalCheckbox size="md" checked={jobConfig.feishu.enabled} onChange={(c) => handleConfigChange("feishu", { ...jobConfig.feishu, enabled: c })} label="启用飞书" />
+                  <BrutalCheckbox size="md" disabled={!jobConfig.feishu.enabled} checked={jobConfig.feishu.push_card} onChange={(c) => handleConfigChange("feishu", { ...jobConfig.feishu, push_card: c })} label="推送总结卡片" />
+                  <BrutalCheckbox size="md" disabled={!jobConfig.feishu.enabled} checked={jobConfig.feishu.push_pdf} onChange={(c) => handleConfigChange("feishu", { ...jobConfig.feishu, push_pdf: c })} label="附带 PDF 报告" />
+                  <BrutalCheckbox size="md" disabled={!jobConfig.feishu.enabled} checked={jobConfig.feishu.push_mindmap} onChange={(c) => handleConfigChange("feishu", { ...jobConfig.feishu, push_mindmap: c })} label="附带思维导图" />
                 </div>
               </div>
             )}

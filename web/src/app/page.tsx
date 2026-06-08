@@ -129,7 +129,7 @@ export default function Home() {
           <div className="mb-12 border-b-[4px] border-black pb-6 flex items-end justify-between">
             <div>
               <h1 className="text-6xl font-black tracking-tighter">工作台</h1>
-              <p className="font-bold text-gray-700 mt-2 text-xl">SMARTMEET 智能中枢</p>
+              <p className="font-bold text-gray-700 mt-2 text-xl">SMARTMEET</p>
             </div>
             {/* 仅开发环境：快速加载 Mock 数据跳过流水线，用于 UI 调试 */}
             {process.env.NODE_ENV === "development" && (
