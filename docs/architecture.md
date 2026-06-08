@@ -124,6 +124,7 @@ graph TB
 | [transcriber.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/media_engine/transcriber.py) | ASR 语音识别（支持 Faster-Whisper / FunASR / SenseVoice 多引擎） |
 | [diarizer.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/media_engine/diarizer.py) | 说话人声纹分离（PyAnnote），将文本按发言人分段对齐 |
 | [frames.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/media_engine/frames.py) | 基于场景检测的关键帧提取 + 字幕时间线对齐 |
+| [subtitle.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/media_engine/subtitle.py) | 字幕数据结构与解析器，处理 SRT 与时间戳转换 |
 | [downloader.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/media_engine/downloader.py) | yt-dlp 封装，支持 YouTube/Bilibili 等平台的音视频下载 |
 | [parser.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/media_engine/parser.py) | 在线链接解析，识别平台类型与资源格式 |
 
@@ -136,22 +137,24 @@ graph TB
 | [agents/action_agent.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/agents/action_agent.py) | 提取行动项（谁/做什么/截止时间） |
 | [agents/insight_agent.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/agents/insight_agent.py) | 发言统计、情绪分析、效率评分、关键词提取 |
 | [agents/speaker_inference_agent.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/agents/speaker_inference_agent.py) | 根据对话上下文推断匿名发言人的真实姓名，执行全局身份替换 |
-| [schemas/meeting_schemas.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/schemas/meeting_schemas.py) | Pydantic 数据契约层，定义 节点间传递的结构化数据类型 |
+| [schemas/](file:///d:/Workspace/agent-project/smartmeet-agent-suite/schemas/) | Pydantic 数据契约层，包括 `meeting_schemas.py`, `job_config.py`, `meeting_state.py`, `task_schema.py` |
 
 ### 3.4 服务层 `services/`
 
 | 模块 | 职责 |
 |------|------|
 | [services/pipeline/](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/pipeline/) | 应用编排层：分 `offline_processor.py` (离线处理) 和 `online_processor.py` (流式处理)，统一调度媒体引擎与工作流 |
-| [services/core/task_queue.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/core/task_queue.py) & [task_service.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/core/task_service.py) | 异步任务处理队列与状态持久化管理，支持基于后台 Task 的可靠投递 |
+| [services/core/task_queue.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/core/task_queue.py) , [task_service.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/core/task_service.py) , [task_model.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/core/task_model.py) | 异步任务处理队列、数据模型与状态持久化管理，支持基于后台 Task 的可靠投递 |
 | [services/core/checkpoint_service.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/core/checkpoint_service.py) | 分析及渲染产物进度存储，用于解耦各个 Pipeline 阶段的数据持久化 |
 | [services/integrations/llm_client.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/integrations/llm_client.py) | 统一 LLM 客户端（OpenAI 兼容），支持异步/同步/流式调用 |
 | [services/integrations/jira_client.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/integrations/jira_client.py) | Jira Cloud REST API 集成 |
 | [services/integrations/feishu_client.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/integrations/feishu_client.py) | 飞书 Open API 集成（消息推送/文件上传） |
 | [services/integrations/action_sync.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/integrations/action_sync.py) | 行动项幂等同步（从 ActionAgent 拆分出的外部同步逻辑） |
-| [services/document_engine/pdf_engine.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/document_engine/pdf_engine.py) | LaTeX PDF + HTML 双引擎排版渲染 |
+| [services/document_engine/pdf_engine.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/document_engine/pdf_engine.py) | LaTeX PDF 排版渲染 |
+| [services/document_engine/html_engine.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/document_engine/html_engine.py) | HTML 网页报告排版渲染 |
+| [services/document_engine/markdown_parser.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/document_engine/markdown_parser.py) | 轻量级自定义 Markdown 到 LaTeX 的语法解析转换 |
 | [services/document_engine/mindmap_engine.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/document_engine/mindmap_engine.py) | Mermaid 思维导图生成引擎 |
-| [services/reporting/](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/reporting/) | 报告组装（ReportComposer）、渲染（ReportRenderer）、脑图（MindMapService） |
+| [services/reporting/](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/reporting/) | 报告组装（ReportComposer）、Markdown格式化（MarkdownFormatter）、渲染（ReportRenderer）、脑图（MindMapService） |
 | [services/delivery/](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/delivery/) | 多渠道分发服务（飞书群聊/Jira Issue 附件挂载及通用 Webhook） |
 
 ### 3.5 多端网关
@@ -348,31 +351,38 @@ smartmeet-agent-suite/
 │   └── speaker_inference_agent.py # 发言人推断 Agent
 ├── workflows/
 │   └── meeting_workflow.py     # LangGraph 状态图编排
-├── schemas/
-│   └── meeting_schemas.py      # Pydantic 数据契约
+├── schemas/                    # Pydantic 数据契约
+│   ├── meeting_schemas.py      # 节点间传递的结构化数据类型
+│   ├── job_config.py           # 任务与系统配置
+│   ├── meeting_state.py        # LangGraph 会议状态图模型
+│   └── task_schema.py          # 异步任务 API Schema
 ├── services/                   # 服务层
 │   ├── pipeline/               # 应用编排管线 (offline_processor, online_processor)
 │   ├── core/                   # 核心基础服务
 │   │   ├── task_queue.py       # 异步任务队列服务
 │   │   ├── task_service.py     # 任务管理服务
+│   │   ├── task_model.py       # 任务数据库模型
 │   │   └── checkpoint_service.py # 状态数据持久化服务
 │   ├── media_engine/           # 媒体处理引擎
 │   │   ├── preprocessor.py     # 降噪/提取音轨
 │   │   ├── transcriber.py      # ASR 语音识别
 │   │   ├── diarizer.py         # 说话人分离
 │   │   ├── frames.py           # 关键帧提取
+│   │   ├── subtitle.py         # 字幕数据解析与时间戳转换
 │   │   ├── downloader.py       # 音视频下载
 │   │   └── parser.py           # 链接解析
 │   ├── document_engine/        # 文档生成引擎
-│   │   ├── pdf_engine.py       # LaTeX/HTML 排版
+│   │   ├── pdf_engine.py       # LaTeX 排版渲染
+│   │   ├── html_engine.py      # HTML 排版渲染
+│   │   ├── markdown_parser.py  # Markdown 到 LaTeX 的自定义解析
 │   │   └── mindmap_engine.py   # 思维导图
 │   ├── integrations/           # 第三方集成
 │   │   ├── llm_client.py       # 统一 LLM 客户端
 │   │   ├── jira_client.py      # Jira 集成
 │   │   ├── feishu_client.py    # 飞书集成
 │   │   └── action_sync.py      # 行动项同步
-│   ├── reporting/              # 报告组装与渲染
-│   └── delivery/               # 多渠道分发
+│   ├── reporting/              # 报告组装 (Composer)、Markdown格式化、渲染 (Renderer)
+│   └── delivery/               # 多渠道分发 (Delivery) 与 Webhook 服务
 ├── assets/                     # CSS/LaTeX 模板文件
 ├── tests/                      # 测试套件
 ├── docs/                       # 文档

@@ -1,6 +1,8 @@
 # SmartMeet
 
-本项目是一条基于大模型和强数据契约的确定性自动化流水线。支持音视频输入，自动提取核心议题、精准待办、情绪洞察，并生成带关键帧的 LaTeX PDF 报告与思维导图，最终支持分钟级推送到飞书群聊或 Jira。
+本项目是一条基于大模型和强数据契约的确定性自动化流水线。支持音视频输入，自动提取核心议题、精准待办、情绪洞察，并生成带关键帧的 LaTeX PDF 报告与思维导图，最终支持分钟级推送到飞书群聊。
+
+>  **交互演示（静态脱机版本，非完整全栈）：[https://smartmeet-five.vercel.app/](https://smartmeet-five.vercel.app/)**
 
 ## 项目背景
 
@@ -30,7 +32,7 @@
    - **持久化 Checkpoint**：通过 `CheckpointService` 在提取、分析、渲染阶段自动保存 JSON 存档，支持断点续传与防崩溃兜底。
 
 4. **排版与分发机制**
-   排版层采用严格状态机的 LaTeX 模板注入 (Template Injection) 技术。结合 `Tectonic` 轻量级编译管线，输出带高亮边框和自动目录的 PDF 讲义。支持通过 Webhook 将结果自动推送至飞书群聊或 Jira 附件。
+   排版层采用严格状态机的 LaTeX 模板注入 (Template Injection) 技术。结合 `Tectonic` 轻量级编译管线，输出带高亮边框和自动目录的 PDF 讲义。支持通过飞书自建应用 (Open API) 将包含 PDF/思维导图等实体附件的会议结果自动推送至飞书群聊。
 
 5. **配置与资产管理**
    内置系统配置管理（集成状态探测）及独立的历史报告服务器。原生提供音频流获取能力，支持从 Web 或第三方客户端对已完成的会议产物（Markdown、PDF、HTML、思维导图等）进行回看与删除。
@@ -62,9 +64,9 @@ conda env create -f environment.yml
 conda activate smartmeet
 
 # 安装前端依赖
-cd web
+cd interfaces/web
 npm install
-cd ..
+cd ../..
 
 # 复制并填写配置文件 (配置 LLM_API_KEY)
 cp .env.example .env

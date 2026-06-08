@@ -7,7 +7,7 @@
 | Python | 3.11+ | 核心运行环境 |
 | CUDA | 12.1 | GPU 加速（可选，CPU 模式也可运行但较慢） |
 | FFmpeg | 4.4+ | 音视频处理 |
-| Node.js | 18+ | 前端控制台 & MCP 服务器（可选） |
+| Node.js | 18+ | 前端控制台（可选） |
 
 ---
 
@@ -146,17 +146,6 @@ python -m cli.main run https://bilibili... --config ./my_config.json
 ```
 
 CLI 通过环境变量 `SMARTMEET_API` 指定 API 服务地址（默认 `http://127.0.0.1:8000`）。
-
-### 4.4 启动 MCP 协议服务器（可选）
-
-```bash
-cd mcp
-npm install
-npm run build
-npm start
-```
-
-MCP 服务器通过 STDIO 协议与支持 MCP 的大模型客户端通信。
 
 ---
 
