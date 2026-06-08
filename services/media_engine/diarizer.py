@@ -55,13 +55,16 @@ class DiarizationResult:
 
     @property
     def transcript_with_speakers(self) -> str:
+        # 严格遵守前端 TranscriptTab.tsx 的解析正则：
+        # /^(.+?)\s+\[(\d{1,2}:\d{2}(?::\d{2})?)\]:\s*(.+)$/
+        # 例如: "Speaker 1 [00:00:00]: 这是一句话。"
         lines = []
-        current_speaker = None
         for seg in self.segments:
-            if seg.speaker != current_speaker:
-                current_speaker = seg.speaker
-                lines.append(f"\n**{current_speaker or 'Unknown'}** ({seg.start_ts}):")
-            lines.append(f"  {seg.text}")
+            speaker = seg.speaker or "Unknown"
+            # 确保文本内没有换行符，否则会破坏前端基于行的正则解析导致解析断层
+            clean_text = seg.text.replace("\n", " ").strip()
+            if clean_text:
+                lines.append(f"{speaker} [{seg.start_ts}]: {clean_text}")
         return "\n".join(lines)
 
 def _format_ts(seconds: float) -> str:
@@ -78,7 +81,7 @@ def diarize(
 ) -> DiarizationResult:
     # 如果转录结果中已经自带了发言人信息（例如 FunASR 本地提取的声纹），则直接构造并返回
     if transcript and transcript.segments and any(getattr(seg, "speaker", None) is not None for seg in transcript.segments):
-        logger.info("Transcript already contains speaker information, bypassing PyAnnote.")
+        logger.info("转录结果中已包含说话人信息，跳过 PyAnnote 声纹分割。")
         segments = []
         speakers = set()
         for seg in transcript.segments:
@@ -106,10 +109,10 @@ def diarize(
             audio_path, transcript, num_speakers, min_speakers, max_speakers
         )
     except ImportError:
-        logger.warning("pyannote-audio not installed, using simple diarization")
+        logger.warning("未安装 pyannote-audio，将使用简易的全程单说话人模式")
         return _diarize_simple(audio_path, transcript)
     except Exception as e:
-        logger.warning(f"pyannote diarization failed: {e}, using simple fallback")
+        logger.warning(f"PyAnnote 声纹分割失败: {e}，将使用简易退级模式")
         return _diarize_simple(audio_path, transcript)
 
 def _diarize_pyannote(
@@ -233,13 +236,34 @@ def _merge_adjacent_speakers(
     merged = [segments[0]]
     for seg in segments[1:]:
         prev = merged[-1]
-        if (seg.speaker == prev.speaker
-                and seg.start - prev.end <= max_gap
-                and prev.text and seg.text):
+        
+        # 判断上一段是否以完整句号/叹号等结尾
+        is_sentence_end = bool(prev.text and prev.text.strip()[-1:] in "。！？.!?")
+        
+        # 持续时间
+        duration_so_far = seg.end - prev.start
+        
+        # 智能合并策略：
+        # 1. 说话人必须相同，且间隔不能太长
+        # 2. 如果已经超过 10 秒，并且刚好是一个句子的结尾，则自然切断（软限制）
+        # 3. 如果极端情况下超过 30 秒都没有句号，才强制切断（硬限制）
+        same_speaker = (seg.speaker == prev.speaker)
+        short_gap = (seg.start - prev.end <= max_gap)
+        
+        should_merge = False
+        if same_speaker and short_gap:
+            if duration_so_far > 30.0:
+                should_merge = False
+            elif duration_so_far > 10.0 and is_sentence_end:
+                should_merge = False
+            else:
+                should_merge = True
+
+        if should_merge and prev.text and seg.text:
             merged[-1] = DiarizedSegment(
                 start=prev.start,
                 end=seg.end,
-                text=f"{prev.text} {seg.text}",
+                text=f"{prev.text} {seg.text}".strip(),
                 speaker=prev.speaker,
             )
         else:

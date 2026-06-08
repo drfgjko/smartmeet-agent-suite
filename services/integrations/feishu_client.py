@@ -60,7 +60,7 @@ class FeishuClient:
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))
     async def send_webhook_message(self, title: str, content: str, msg_type: str = "interactive") -> bool:
         if not self.webhook_url:
-            logger.warning("Feishu webhook not configured, skipping")
+            logger.warning("未配置飞书 Webhook 链接，跳过发送")
             return False
         card = {
             "msg_type": "interactive",
@@ -73,7 +73,7 @@ class FeishuClient:
         data = resp.json()
         success = data.get("code", -1) == 0
         if success:
-            logger.info(f"Feishu webhook message sent: {title}")
+            logger.info(f"通过 Webhook 成功发送飞书消息: {title}")
         else:
             logger.error(f"飞书 Webhook 调用失败: {data}")
         return success
@@ -106,11 +106,11 @@ class FeishuClient:
         )
         data = resp.json()
         if data.get("code") != 0:
-            logger.error(f"Feishu create task failed: {data}")
+            logger.error(f"创建飞书任务失败: {data}")
             return {"task_id": "", "data": data, "error": data.get("msg")}
             
         task_id = data.get("data", {}).get("task", {}).get("guid", data.get("data", {}).get("task", {}).get("id", ""))
-        logger.info(f"Created Feishu task: {task_id} - {summary}")
+        logger.info(f"成功创建飞书任务: {task_id} - {summary}")
         return {"task_id": task_id, "data": data}
 
     async def send_meeting_summary(self, title: str, summary_md: str, action_items_md: str, insights_md: str) -> bool:
@@ -150,12 +150,12 @@ class FeishuClient:
             )
             success = res.get("code") == 0
             if not success:
-                logger.error(f"Feishu bot API failed to send card: {res}")
+                logger.error(f"飞书机器人 API 发送卡片失败: {res}")
             else:
-                logger.info(f"Feishu bot API successfully sent card to {self.receive_id}")
+                logger.info(f"成功通过飞书机器人 API 向 {self.receive_id} 发送总结卡片")
             return success
             
-        logger.warning("No webhook URL and no receive_id configured. Skipping summary card.")
+        logger.warning("未配置 Webhook 链接也未配置 Receive_ID，跳过发送会议总结卡片")
         return False
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))
@@ -171,7 +171,7 @@ class FeishuClient:
         
         path = Path(file_path)
         if not path.exists():
-            logger.error(f"File not found: {file_path}")
+            logger.error(f"找不到需要上传的飞书文件: {file_path}")
             return ""
             
         url = f"{self.BASE_URL}/im/v1/files"
@@ -192,13 +192,13 @@ class FeishuClient:
             res = resp.json()
             if res.get("code") == 0:
                 file_key = res.get("data", {}).get("file_key", "")
-                logger.info(f"Uploaded file {path.name} to Feishu, file_key: {file_key}")
+                logger.info(f"成功将文件 {path.name} 上传至飞书，文件 Key: {file_key}")
                 return file_key
             else:
-                logger.error(f"Feishu upload file failed: {res}")
+                logger.error(f"飞书上传文件失败: {res}")
                 return ""
         except Exception as e:
-            logger.exception(f"Error during Feishu upload: {e}")
+            logger.exception(f"上传至飞书时发生异常: {e}")
             return ""
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))
@@ -225,12 +225,12 @@ class FeishuClient:
             res = resp.json()
             success = res.get("code") == 0
             if success:
-                logger.info(f"Successfully sent Feishu file message to {receive_id}")
+                logger.info(f"成功向 {receive_id} 发送飞书文件消息")
             else:
-                logger.error(f"Feishu send file message failed: {res}")
+                logger.error(f"发送飞书文件消息失败: {res}")
             return success
         except Exception as e:
-            logger.exception(f"Error during Feishu send file: {e}")
+            logger.exception(f"发送飞书文件消息时发生异常: {e}")
             return False
 
     async def close(self):

@@ -101,7 +101,7 @@ def build_meeting_graph(
     for agent_name in enabled_agents:
         graph.add_edge(agent_name, END)
 
-    logger.info(f"Meeting graph built: agents={enabled_agents}")
+    logger.info(f"会议流图构建完成，启用的代理: {enabled_agents}")
     return graph
 
 
@@ -127,7 +127,7 @@ def compile_meeting_graph(
     )
     compiled = graph.compile()
     _compiled_graph_cache[cache_key] = compiled
-    logger.info("Meeting graph compiled and cached successfully")
+    logger.info("会议流水线编译并缓存成功")
     return compiled
 
 
@@ -157,7 +157,7 @@ async def run_meeting_pipeline(
     if job_config is None:
         job_config = JobConfig()
 
-    logger.info(f"Starting meeting pipeline: {meeting_id}")
+    logger.info(f"开始执行会议流水线，任务 ID: {meeting_id}")
 
     initial_state = MeetingGraphState(
         meeting_id=meeting_id,
@@ -176,7 +176,9 @@ async def run_meeting_pipeline(
     final_state = raw_state.model_dump() if hasattr(raw_state, "model_dump") else dict(raw_state)
     errors = final_state.get("errors", [])
     if errors:
-        logger.warning(f"Pipeline completed with errors: {errors}")
+        logger.warning(f"流水线执行完成，但存在部分错误: {errors}")
+        final_state["status"] = "FAILED"
     else:
         logger.info(f"流水线处理成功完成:: {meeting_id}")
+        final_state["status"] = "COMPLETED"
     return final_state

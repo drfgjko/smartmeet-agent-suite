@@ -54,7 +54,7 @@ class TaskQueue:
                 await self.webhook_service.dispatch(webhook_urls, webhook_payload)
 
         except Exception as e:
-            logger.exception(f"[TaskQueue] Task {task_id} failed: {e}")
+            logger.exception(f"[TaskQueue] 任务 {task_id} 执行失败: {e}")
             self.task_service.update_task_status(task_id, status="failed", error=str(e))
             
             if webhook_urls:

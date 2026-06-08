@@ -32,7 +32,7 @@ class JiraClient:
                 import json
                 self.USER_MAPPING: dict[str, str] = json.loads(raw_mapping)
             except json.JSONDecodeError:
-                logger.warning(f"Invalid JIRA_USER_MAPPING JSON, using empty mapping")
+                logger.warning(f"无效的 JIRA_USER_MAPPING JSON，将使用空映射字典")
                 self.USER_MAPPING: dict[str, str] = {}
         else:
             self.USER_MAPPING: dict[str, str] = raw_mapping or {}
@@ -50,7 +50,7 @@ class JiraClient:
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))
     def create_issue(self, summary: str, description: str = "", assignee: str | None = None, due_date: str | None = None, priority: str = "Medium", issue_type: str = "Task", labels: list[str] | None = None) -> dict[str, str]:
         if not self._enabled:
-            logger.warning("Jira integration not configured, skipping")
+            logger.warning("未配置 Jira 集成参数，跳过创建任务")
             return {"key": "DISABLED", "id": "", "url": ""}
         client = self._get_client()
         fields: dict[str, Any] = {
@@ -70,7 +70,7 @@ class JiraClient:
             fields["labels"] = ["meeting-auto"]
         issue = client.create_issue(fields=fields)
         result = {"key": issue.key, "id": str(issue.id), "url": f"{self.server}/browse/{issue.key}"}
-        logger.info(f"Created Jira issue: {result['key']} - {summary}")
+        logger.info(f"成功创建 Jira 任务: {result['key']} - {summary}")
         return result
 
     def get_issue_status(self, issue_key: str) -> str:
@@ -85,7 +85,7 @@ class JiraClient:
             return
         client = self._get_client()
         client.add_comment(issue_key, comment)
-        logger.info(f"Added comment to {issue_key}")
+        logger.info(f"成功向任务添加评论: {issue_key}")
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))
     def add_attachment(self, issue_key: str, file_path: str | Path, filename: str | None = None) -> bool:
@@ -93,19 +93,19 @@ class JiraClient:
         上传文件作为 Jira Issue 的附件
         """
         if not self._enabled:
-            logger.warning("Jira integration not configured, skipping add_attachment")
+            logger.warning("未配置 Jira 集成参数，跳过添加附件")
             return False
         client = self._get_client()
         try:
             path = Path(file_path)
             if not path.exists():
-                logger.error(f"Attachment file not found: {file_path}")
+                logger.error(f"找不到需要上传的附件文件: {file_path}")
                 return False
             client.add_attachment(issue=issue_key, attachment=str(path.resolve()), filename=filename or path.name)
-            logger.info(f"Successfully uploaded attachment {path.name} to Jira issue {issue_key}")
+            logger.info(f"成功将附件 {path.name} 上传至 Jira 任务 {issue_key}")
             return True
         except Exception as e:
-            logger.error(f"Failed to upload attachment to Jira issue {issue_key}: {e}")
+            logger.error(f"无法将附件上传至 Jira 任务 {issue_key}: {e}")
             return False
 
     def resolve_user(self, display_name: str) -> str | None:

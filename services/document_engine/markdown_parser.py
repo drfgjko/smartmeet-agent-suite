@@ -70,6 +70,14 @@ class MarkdownToLatexConverter:
                 tex_lines.append(line)
                 continue
                 
+            # 分割线 ---, ***, ___
+            if re.match(r'^[-*_]{3,}$', line):
+                close_lists()
+                tex_lines.append("\\vspace{1em}")
+                tex_lines.append("\\noindent\\rule{\\textwidth}{0.4pt}")
+                tex_lines.append("\\vspace{1em}")
+                continue
+                
             # 识别标题
             if line.startswith("#"):
                 close_lists()
@@ -130,4 +138,6 @@ class MarkdownToLatexConverter:
         text = text.replace("&", "\\&").replace("%", "\\%").replace("$", "\\$").replace("#", "\\#")
         # 粗体 **xxx** -> \textbf{xxx}
         text = re.sub(r'\*\*(.*?)\*\*', r'\\textbf{\1}', text)
+        # 斜体/强调 *xxx* -> \textbf{xxx} （中文排版中斜体支持较弱，统一转为加粗强调）
+        text = re.sub(r'(?<!\\)\*([^\*]+?)(?<!\\)\*', r'\\textbf{\1}', text)
         return text

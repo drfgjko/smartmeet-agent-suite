@@ -101,11 +101,11 @@ class HTMLNoteBuilder:
     def html_to_pdf(html_path: Path, pdf_path: Path) -> bool:
         try:
             from weasyprint import HTML
-            logger.info(f"Using WeasyPrint to render native PDF to {pdf_path}")
+            logger.info(f"正在使用 WeasyPrint 渲染原生 PDF 至 {pdf_path}")
             HTML(filename=str(html_path.resolve())).write_pdf(str(pdf_path.resolve()))
             return pdf_path.exists() and pdf_path.stat().st_size > 5000
         except Exception as e:
-            logger.warning(f"WeasyPrint failed ({e}). Falling back to zero-dependency Chrome Headless...")
+            logger.warning(f"WeasyPrint 渲染失败 ({e})。正在降级回退至无依赖的 Chrome 无头模式渲染...")
             
             chrome = None
             if platform.system() == "Windows":
@@ -128,7 +128,7 @@ class HTMLNoteBuilder:
                 )
 
             if not chrome:
-                logger.error("No WeasyPrint, and no Chrome/Edge found. PDF generation failed.")
+                logger.error("未安装 WeasyPrint，且未找到 Chrome/Edge 浏览器。PDF 生成失败。")
                 return False
 
             cmd = [
@@ -140,7 +140,7 @@ class HTMLNoteBuilder:
             try:
                 subprocess.run(cmd, capture_output=True, timeout=60)
             except Exception as ce:
-                logger.error(f"Failed to run chrome headlessly: {ce}")
+                logger.error(f"无头浏览器模式执行失败: {ce}")
                 return False
 
             return pdf_path.exists() and pdf_path.stat().st_size > 5000

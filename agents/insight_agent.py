@@ -17,7 +17,7 @@ from utils.serialization import _state_value
 
 INSIGHT_SYSTEM_PROMPT = """你是一位专业的会议分析师。请分析以下会议转写文本，提供多维度的会议洞察。
 分析维度：
-1. 情绪分析：判断整体会议氛围（positive/neutral/negative），给出0-1的情感得分
+1. 情绪分析：判断整体会议氛围（积极/中立/消极），给出0-1的情感得分
 2. 关键词：提取5-10个核心关键词
 3. 会议亮点：列出2-3个重要亮点
 4. 改进建议：提供1-2条改进建议
@@ -31,7 +31,7 @@ INSIGHT_USER_PROMPT = """请分析以下会议转写文本。
 {speaker_stats}
 ## 输出格式（严格JSON）
 {{
-  "overall_sentiment": "positive 或 neutral 或 negative",
+  "overall_sentiment": "积极 或 中立 或 消极",
   "sentiment_score": 0.75,
   "efficiency_score": 8.0,
   "keywords": ["关键词1", "关键词2"],
@@ -71,7 +71,7 @@ class InsightAgent:
             llm_insights = await self._analyze_with_llm(transcript_text, [])
         output = InsightOutput(
             meeting_id=meeting_id,
-            overall_sentiment=llm_insights.get("overall_sentiment", "neutral"),
+            overall_sentiment=llm_insights.get("overall_sentiment", "中立"),
             sentiment_score=llm_insights.get("sentiment_score", 0.5),
             speaker_stats=speaker_stats,
             efficiency_score=self._compute_efficiency_score(
@@ -123,7 +123,7 @@ class InsightAgent:
             {"role": "user", "content": INSIGHT_USER_PROMPT.format(transcript=transcript_text, speaker_stats=stats_text)},
         ]
         result = await self.llm.chat_json(messages=messages, temperature=0.3, max_tokens=2048)
-        result["overall_sentiment"] = result.get("overall_sentiment", "neutral").lower()
+        result["overall_sentiment"] = result.get("overall_sentiment", "中立")
         return result
 
     @staticmethod

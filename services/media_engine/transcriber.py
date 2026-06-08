@@ -37,11 +37,41 @@ class FunASREngine(ASREngine):
     def _get_pipeline(self):
         if self._pipeline is None:
             from funasr import AutoModel
+            import os
+            from pathlib import Path
+
+            # 工具函数：尝试转换模型 ID 为本地绝对路径
+            def get_offline_path(alias_or_path: str) -> str:
+                if Path(alias_or_path).exists(): return alias_or_path
+                
+                # FunASR 内置别名与真实 ModelScope 仓库名的映射
+                alias_map = {
+                    "fsmn-vad": "speech_fsmn_vad_zh-cn-16k-common-pytorch",
+                    "ct-punc": "punc_ct-transformer_cn-en-common-vocab471067-large",
+                    "cam++": "speech_campplus_sv_zh-cn_16k-common",
+                    "paraformer-zh": "speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch"
+                }
+                
+                ms_name = alias_map.get(alias_or_path, alias_or_path)
+                check_id = ms_name if "/" in ms_name else f"iic/{ms_name}"
+                
+                # 检查默认缓存目录，兼容带 models 目录或不带 models 目录的结构
+                cache_dir_with_models = Path.home() / ".cache" / "modelscope" / "hub" / "models" / check_id
+                cache_dir_direct = Path.home() / ".cache" / "modelscope" / "hub" / check_id
+                
+                if cache_dir_with_models.exists():
+                    return str(cache_dir_with_models)
+                if cache_dir_direct.exists():
+                    return str(cache_dir_direct)
+                
+                # 找不到缓存时，必须返回原始的别名让 FunASR 自己处理下载
+                return alias_or_path
+
             self._pipeline = AutoModel(
-                model=self.model_name,
-                vad_model="fsmn-vad",
-                punc_model="ct-punc",
-                spk_model="cam++",
+                model=get_offline_path(self.model_name),
+                vad_model=get_offline_path("fsmn-vad"),
+                punc_model=get_offline_path("ct-punc"),
+                spk_model=get_offline_path("cam++"),
                 disable_update=True,
             )
         return self._pipeline
@@ -112,7 +142,21 @@ class SenseVoiceEngine(ASREngine):
     def _get_model(self):
         if self._model is None:
             from funasr import AutoModel
-            self._model = AutoModel(model="iic/SenseVoiceSmall", disable_update=True)
+            import os
+            from pathlib import Path
+            
+            # 探测本地缓存路径，强制走离线模式阻断 .mv 联网更新 (兼容带 models 目录的结构)
+            local_cache_path_models = Path.home() / ".cache" / "modelscope" / "hub" / "models" / "iic" / "SenseVoiceSmall"
+            local_cache_path_direct = Path.home() / ".cache" / "modelscope" / "hub" / "iic" / "SenseVoiceSmall"
+            
+            if local_cache_path_models.exists():
+                model_id_or_path = str(local_cache_path_models)
+            elif local_cache_path_direct.exists():
+                model_id_or_path = str(local_cache_path_direct)
+            else:
+                model_id_or_path = "iic/SenseVoiceSmall"
+            
+            self._model = AutoModel(model=model_id_or_path, disable_update=True)
         return self._model
 
     def transcribe(self, audio_path: Path, language: str = "zh") -> SubtitleResult:
@@ -253,11 +297,11 @@ def detect_language(audio_path: Path) -> str:
         _, info = model.transcribe(str(audio_path), language=None, vad_filter=True)
         detected = info.language
         prob = info.language_probability
-        logger.info(f"Detected language: {detected} (confidence: {prob:.2f})")
+        logger.info(f"检测到语言: {detected} (置信度: {prob:.2f})")
         if prob > 0.5:
             return detected
     except (ImportError, Exception) as e:
-        logger.debug(f"Language detection failed: {e}")
+        logger.debug(f"语言检测失败: {e}")
 
     return "zh"
 
@@ -313,5 +357,5 @@ def transcribe(
         language = detect_language(audio_path)
 
     engine = _create_engine(language)
-    logger.info(f"Using ASR engine: {engine.name} (language: {language})")
+    logger.info(f"使用语音识别引擎: {engine.name} (语言: {language})")
     return engine.transcribe(audio_path, language)

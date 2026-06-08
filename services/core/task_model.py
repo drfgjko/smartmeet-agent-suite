@@ -5,8 +5,10 @@ from sqlalchemy import create_engine, Column, String, DateTime, Text
 from sqlalchemy.orm import declarative_base, sessionmaker
 from pathlib import Path
 
-# 自动在项目根目录创建 smartmeet.db
-_DB_PATH = Path(__file__).resolve().parents[1] / "smartmeet.db"
+from utils.file_system import get_workspace_dir
+
+# 将 smartmeet.db 统一放在工作区目录 (workspace/) 下
+_DB_PATH = get_workspace_dir() / "smartmeet.db"
 engine = create_engine(
     f"sqlite:///{_DB_PATH}", 
     connect_args={"check_same_thread": False}
