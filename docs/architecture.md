@@ -102,17 +102,19 @@ graph TB
 
 ## 三、模块职责
 
-### 3.1 API 网关层 `api/`
+### 3.1 API 网关层 `interfaces/api/`
 
 | 模块 | 职责 |
 |------|------|
-| [api/main.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/api/main.py) | FastAPI 入口，注册路由、CORS 中间件、静态文件服务 |
-| [api/routes/recording.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/api/routes/recording.py) | 音视频处理核心入口：文件上传、离线处理（含流式进度推送与异步后台任务） |
-| [api/routes/analyze.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/api/routes/analyze.py) | 原子化分析接口：仅运行 AI Agent 提取摘要、待办和洞察（不含音视频处理与排版） |
-| [api/routes/deliver.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/api/routes/deliver.py) | 纯交付接口：接受分析结果并执行渲染、思维导图生成与飞书/Jira 分发 |
-| [api/routes/render.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/api/routes/render.py) | 原子化渲染接口：根据分析结果排版生成 PDF/Markdown/思维导图报告 |
-| [api/routes/tasks.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/api/routes/tasks.py) | 异步任务管理：用于轮询查询离线异步处理任务状态 |
-| [api/routes/websocket.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/api/routes/websocket.py) | 实时录音 WebSocket 接口，接收音频流并触发完整流水线 |
+| [interfaces/api/main.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/interfaces/api/main.py) | FastAPI 入口，注册路由、CORS 中间件、静态文件服务 |
+| [interfaces/api/routes/recording.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/interfaces/api/routes/recording.py) | 音视频处理核心入口：文件上传、离线处理（含流式进度推送与异步后台任务） |
+| [interfaces/api/routes/analyze.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/interfaces/api/routes/analyze.py) | 原子化分析接口：仅运行 AI Agent 提取摘要、待办和洞察（不含音视频处理与排版） |
+| [interfaces/api/routes/deliver.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/interfaces/api/routes/deliver.py) | 纯交付接口：接受分析结果并执行渲染、思维导图生成与飞书/Jira 分发 |
+| [interfaces/api/routes/render.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/interfaces/api/routes/render.py) | 原子化渲染接口：根据分析结果排版生成 PDF/Markdown/思维导图报告 |
+| [interfaces/api/routes/tasks.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/interfaces/api/routes/tasks.py) | 异步任务管理：用于轮询查询离线异步处理任务状态 |
+| [interfaces/api/routes/websocket.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/interfaces/api/routes/websocket.py) | 实时录音 WebSocket 接口，接收音频流并触发完整流水线 |
+| [interfaces/api/routes/config.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/interfaces/api/routes/config.py) | 系统配置管理接口：读写系统级环境变量与检测集成服务状态 |
+| [interfaces/api/routes/reports.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/interfaces/api/routes/reports.py) | 历史报告管理接口：查看、删除会议产物，及音频文件流服务 |
 
 ### 3.2 媒体处理引擎 `services/media_engine/`
 
@@ -141,8 +143,8 @@ graph TB
 | 模块 | 职责 |
 |------|------|
 | [services/pipeline/](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/pipeline/) | 应用编排层：分 `offline_processor.py` (离线处理) 和 `online_processor.py` (流式处理)，统一调度媒体引擎与工作流 |
-| [services/task_queue.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/task_queue.py) & [task_service.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/task_service.py) | 异步任务处理队列与状态持久化管理，支持基于后台 Task 的可靠投递 |
-| [services/checkpoint_service.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/checkpoint_service.py) | 分析及渲染产物进度存储，用于解耦各个 Pipeline 阶段的数据持久化 |
+| [services/core/task_queue.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/core/task_queue.py) & [task_service.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/core/task_service.py) | 异步任务处理队列与状态持久化管理，支持基于后台 Task 的可靠投递 |
+| [services/core/checkpoint_service.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/core/checkpoint_service.py) | 分析及渲染产物进度存储，用于解耦各个 Pipeline 阶段的数据持久化 |
 | [services/integrations/llm_client.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/integrations/llm_client.py) | 统一 LLM 客户端（OpenAI 兼容），支持异步/同步/流式调用 |
 | [services/integrations/jira_client.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/integrations/jira_client.py) | Jira Cloud REST API 集成 |
 | [services/integrations/feishu_client.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/integrations/feishu_client.py) | 飞书 Open API 集成（消息推送/文件上传） |
@@ -156,8 +158,8 @@ graph TB
 
 | 模块 | 职责 | 技术栈 |
 |------|------|--------|
-| [web/](file:///d:/Workspace/agent-project/smartmeet-agent-suite/web/) | 前端控制台 | Next.js 14 + React + TailwindCSS |
-| [cli/](file:///d:/Workspace/agent-project/smartmeet-agent-suite/cli/) | 命令行客户端 | Python Click + Rich |
+| [interfaces/web/](file:///d:/Workspace/agent-project/smartmeet-agent-suite/interfaces/web/) | 前端控制台 | Next.js 14 + React + TailwindCSS |
+| [interfaces/cli/](file:///d:/Workspace/agent-project/smartmeet-agent-suite/interfaces/cli/) | 命令行客户端 | Python Click + Rich |
 
 ---
 
@@ -322,15 +324,23 @@ graph TB
 
 ```
 smartmeet-agent-suite/
-├── api/                        # FastAPI 网关层
-│   ├── main.py                 # 入口与路由注册
-│   └── routes/
-│       ├── analyze.py          # 原子化分析 API
-│       ├── deliver.py          # 纯交付 API
-│       ├── recording.py        # 核心入口：离线处理及任务分发
-│       ├── render.py           # 原子化渲染 API
-│       ├── tasks.py            # 异步任务查询 API
-│       └── websocket.py        # 实时录音 WebSocket
+├── interfaces/                 # 多端接入接口层
+│   ├── api/                    # FastAPI 网关层
+│   │   ├── main.py             # 入口与路由注册
+│   │   └── routes/
+│   │       ├── analyze.py      # 原子化分析 API
+│   │       ├── deliver.py      # 纯交付 API
+│   │       ├── recording.py    # 核心入口：离线处理及任务分发
+│   │       ├── render.py       # 原子化渲染 API
+│   │       ├── tasks.py        # 异步任务查询 API
+│   │       ├── websocket.py    # 实时录音 WebSocket
+│   │       ├── config.py       # 系统配置管理 API
+│   │       └── reports.py      # 历史报告管理 API
+│   ├── cli/                    # CLI 命令行客户端
+│   │   └── main.py
+│   └── web/                    # Web 前端控制台
+│       ├── src/app/page.tsx
+│       └── package.json
 ├── agents/                     # 流水线协作层
 │   ├── summary_agent.py        # 摘要 Agent
 │   ├── action_agent.py         # 待办 Agent
@@ -342,9 +352,10 @@ smartmeet-agent-suite/
 │   └── meeting_schemas.py      # Pydantic 数据契约
 ├── services/                   # 服务层
 │   ├── pipeline/               # 应用编排管线 (offline_processor, online_processor)
-│   ├── task_queue.py           # 异步任务队列服务
-│   ├── task_service.py         # 任务管理服务
-│   ├── checkpoint_service.py   # 状态数据持久化服务
+│   ├── core/                   # 核心基础服务
+│   │   ├── task_queue.py       # 异步任务队列服务
+│   │   ├── task_service.py     # 任务管理服务
+│   │   └── checkpoint_service.py # 状态数据持久化服务
 │   ├── media_engine/           # 媒体处理引擎
 │   │   ├── preprocessor.py     # 降噪/提取音轨
 │   │   ├── transcriber.py      # ASR 语音识别
@@ -362,13 +373,6 @@ smartmeet-agent-suite/
 │   │   └── action_sync.py      # 行动项同步
 │   ├── reporting/              # 报告组装与渲染
 │   └── delivery/               # 多渠道分发
-├── cli/                        # CLI 命令行客户端
-│   └── main.py
-├── web/                        # Web 前端控制台
-│   ├── src/app/page.tsx
-│   └── package.json
-│   ├── src/index.ts
-│   └── package.json
 ├── assets/                     # CSS/LaTeX 模板文件
 ├── tests/                      # 测试套件
 ├── docs/                       # 文档

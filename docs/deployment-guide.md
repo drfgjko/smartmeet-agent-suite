@@ -120,7 +120,7 @@ curl http://localhost:8000/health
 ### 4.2 启动 Web 前端控制台（可选）
 
 ```bash
-cd web
+cd interfaces/web
 npm install
 npm run dev
 ```
@@ -174,6 +174,8 @@ MCP 服务器通过 STDIO 协议与支持 MCP 的大模型客户端通信。
 | `/api/v1/analyze` | POST | 原子化分析接口（纯 JSON 输出） |
 | `/api/v1/render` | POST | 原子化渲染与外部分发接口 |
 | `/api/v1/tasks/{task_id}` | GET | 异步任务轮询查询接口 |
+| `/api/v1/config` | GET/PUT | 系统配置读取与更新接口 |
+| `/api/v1/reports` | GET/DELETE | 历史报告管理接口 |
 | `/ws/meeting/{meeting_id}` | WebSocket | 实时录音与并发节点 处理 |
 
 详细接口文档见 [api-reference.md](api-reference.md)。

@@ -378,7 +378,72 @@ POST /api/v1/deliver
 
 **响应示例**：返回生成的资产路径及同步、分发结果，详见 `/process` 接口响应中的 `followup` 和 `actions` 字段。
 
-## 四、WebSocket 实时接口
+---
+
+## 四、配置与管理接口
+
+### 4.1 获取配置
+
+```http
+GET /api/v1/config
+```
+
+读取并返回系统脱敏后的配置信息（如 LLM 设置、ASR 设置、外部集成参数等）。
+
+### 4.2 更新配置
+
+```http
+PUT /api/v1/config
+```
+
+更新系统配置并持久化保存。
+
+**请求格式**：`application/json`
+
+**请求示例**：
+
+```json
+{
+  "llm_model": "gpt-4o-mini",
+  "log_level": "DEBUG"
+}
+```
+
+### 4.3 检测集成服务状态
+
+```http
+GET /api/v1/config/status
+```
+
+探测 LLM、飞书、Jira 等外部集成服务的当前可用性状态。
+
+### 4.4 获取报告列表
+
+```http
+GET /api/v1/reports
+```
+
+获取系统中已处理的历史会议报告列表。
+
+### 4.5 获取音频文件流
+
+```http
+GET /api/v1/reports/{meeting_id}/audio
+```
+
+获取某次会议的原始音频文件流，支持 HTTP Range。
+
+### 4.6 删除报告
+
+```http
+DELETE /api/v1/reports/{meeting_id}
+```
+
+彻底删除指定会议的所有报告及产物文件。
+
+---
+
+## 五、WebSocket 实时接口
 
 ### 4.1 连接
 
@@ -473,9 +538,9 @@ WebSocket ws://localhost:8000/ws/meeting/{meeting_id}
 
 ---
 
-## 五、处理参数说明
+## 六、处理参数说明
 
-### 5.1 降噪级别（denoise_level）
+### 6.1 降噪级别（denoise_level）
 
 | 级别 | 说明 | 适用场景 |
 |------|------|----------|
@@ -501,7 +566,7 @@ WebSocket ws://localhost:8000/ws/meeting/{meeting_id}
 
 ---
 
-## 六、错误码说明
+## 七、错误码说明
 
 | HTTP 状态码 | 说明 | 常见原因 |
 |-------------|------|----------|
