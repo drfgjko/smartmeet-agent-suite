@@ -1,12 +1,16 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Result } from "../types";
 import UploadPanel from "../components/UploadPanel";
 import AudioPlayer, { AudioPlayerHandle } from "../components/result/AudioPlayer";
 import MeetingOverview from "../components/result/MeetingOverview";
 import SpeakerStats from "../components/result/SpeakerStats";
 import ExportActions from "../components/result/ExportActions";
+import TranscriptTab from "../components/result/TranscriptTab";
+import SummaryTab from "../components/result/SummaryTab";
+import ActionsTab from "../components/result/ActionsTab";
+import InsightsTab from "../components/result/InsightsTab";
 
 // ─── 开发模式专用 Mock 数据 ───────────────────────────────────────────────────
 // 用于绕过真实流水线，直接预览结果页布局。生产构建时此常量不会被使用。
@@ -18,7 +22,7 @@ const MOCK_RESULT = {
   duration: 1843,
   num_speakers: 4,
   speakers: ["Speaker 1", "Speaker 2", "Speaker 3", "Speaker 4"],
-  output_files: { markdown: "/mock/report.md" },
+  output_files: { markdown: "/mock/report.md", pdf: "/mock/report.pdf", mindmap: "/mock/mindmap.html" },
   diarized_transcript:
     "Speaker 1 [00:00:05]: 大家好，我们今天来讨论一下人才盘点项目的整体思路。\nSpeaker 2 [00:00:12]: 我认为首先需要明确评估维度和权重。\nSpeaker 3 [00:00:54]: 关于高考志愿动态填报这个项目，我觉得可以作为参考案例。\nSpeaker 4 [00:01:30]: 我补充一下，我们需要确保数据的准确性和一致性。",
   summary: {
@@ -71,14 +75,37 @@ const API_BASE =
 
 export default function Home() {
   const [result, setResult] = useState<Result | null>(null);
-  // 当前音频播放时间，供右侧逐字稿联动（4.2 阶段接入）
   const [currentAudioTime, setCurrentAudioTime] = useState(0);
+  const [activeTab, setActiveTab] = useState<"transcript" | "summary" | "actions" | "insights">("summary");
   const audioPlayerRef = useRef<AudioPlayerHandle>(null);
 
   const handleUploadSuccess = (r: Result) => {
     setResult(r);
     setCurrentAudioTime(0);
   };
+
+  // 处理从历史记录页携带 meeting_id 跳转过来的场景
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const mid = params.get("meeting_id");
+      if (mid) {
+        fetch(`${API_BASE}/reports/${mid}/final_result.json`)
+          .then((res) => {
+            if (!res.ok) throw new Error("Result not found");
+            return res.json();
+          })
+          .then((data) => {
+            setResult(data);
+            setCurrentAudioTime(0);
+          })
+          .catch((err) => {
+            console.error("Failed to load history report:", err);
+            // 这里可以加一个 Toast 提示，简单起见只在 console 打印
+          });
+      }
+    }
+  }, []);
 
   /** 右侧逐字稿点击时间戳，联动音频跳转（供 4.2 的 TranscriptTab 调用） */
   const handleSeekAudio = useCallback((seconds: number) => {
@@ -165,21 +192,48 @@ export default function Home() {
               <ExportActions result={result} API_BASE={API_BASE} />
             </aside>
 
-            {/* ── 右侧 ~60% — 4.2 阶段接入 Tab 组件 ── */}
-            <main className="flex-1 h-full overflow-y-auto p-6 bg-[#f4f4f0]">
-              {/* TODO(阶段四 4.2): 替换为 TranscriptTab / SummaryTab / ActionsTab / InsightsTab */}
-              <div className="brutal-box p-6 bg-white space-y-3">
-                <h2 className="text-sm font-black uppercase tracking-widest text-gray-400 border-b-[2px] border-black pb-2">
-                  详情面板
-                </h2>
-                <p className="text-xs font-bold text-gray-400">
-                  Tab 内容区（逐字稿 / 纪要 / 待办 / 洞察）正在 4.2 阶段开发中，即将接入。
-                </p>
-                {/* 临时展示逐字稿原文 */}
-                {result.diarized_transcript && (
-                  <pre className="whitespace-pre-wrap font-mono text-xs leading-relaxed max-h-[70vh] overflow-y-auto text-gray-700 bg-[#f9f9f6] p-4 border-[2px] border-black">
-                    {result.diarized_transcript}
-                  </pre>
+            {/* ── 右侧 ~60% — Tab 内容区 ── */}
+            <main className="flex-1 h-full overflow-hidden flex flex-col bg-[#f4f4f0]">
+              {/* Tab 导航栏 */}
+              <div className="flex border-b-[3px] border-black bg-white flex-shrink-0">
+                {([
+                  { id: "summary", label: "纪要", show: !!result.summary },
+                  { id: "transcript", label: "逐字稿", show: !!result.diarized_transcript },
+                  { id: "actions", label: "待办", show: !!result.actions },
+                  { id: "insights", label: "洞察", show: !!result.insights },
+                ] as const).filter((t) => t.show).map((tab) => (
+                  <button
+                    key={tab.id}
+                    id={`tab-btn-${tab.id}`}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`px-5 py-3 text-sm font-black uppercase tracking-wider border-r-[2px] border-black transition-colors
+                      ${activeTab === tab.id
+                        ? "bg-black text-white"
+                        : "bg-white text-gray-500 hover:bg-[#f4f4f0]"
+                      }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Tab 内容 */}
+              <div className="flex-1 overflow-y-auto p-5">
+                {activeTab === "summary" && result.summary && (
+                  <SummaryTab summary={result.summary} />
+                )}
+                {activeTab === "transcript" && result.diarized_transcript && (
+                  <TranscriptTab
+                    diarizedTranscript={result.diarized_transcript}
+                    currentAudioTime={currentAudioTime}
+                    onSeek={handleSeekAudio}
+                  />
+                )}
+                {activeTab === "actions" && result.actions && (
+                  <ActionsTab actions={result.actions} />
+                )}
+                {activeTab === "insights" && result.insights && (
+                  <InsightsTab insights={result.insights} />
                 )}
               </div>
             </main>

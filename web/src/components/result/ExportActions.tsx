@@ -10,8 +10,56 @@ type BtnState = "idle" | "loading" | "ok" | "error";
 
 export default function ExportActions({ result, API_BASE }: ExportActionsProps) {
   const [copyState, setCopyState] = useState<BtnState>("idle");
+  const [feishuState, setFeishuState] = useState<BtnState>("idle");
+  const [jiraState, setJiraState] = useState<BtnState>("idle");
+
+  // 飞书推送配置状态
+  const [feishuConfig, setFeishuConfig] = useState({
+    push_card: true,
+    push_pdf: true,
+    push_mindmap: true,
+  });
 
   const { meeting_id, title, content, output_files } = result;
+
+  const handleManualDeliver = async (type: "feishu" | "jira") => {
+    const setState = type === "feishu" ? setFeishuState : setJiraState;
+    setState("loading");
+    try {
+      const payload = {
+        meeting_id,
+        summary: result.summary || {},
+        actions: result.actions || {},
+        insights: result.insights || {},
+        output_files: result.output_files || {},
+        job_config: {
+          enable_delivery: type === "feishu",
+          enable_task_sync: type === "jira",
+          feishu: type === "feishu" ? {
+            enabled: true,
+            ...feishuConfig
+          } : undefined,
+        },
+      };
+
+      const res = await fetch(`${API_BASE}/api/v1/deliver`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        setState("ok");
+        setTimeout(() => setState("idle"), 3000);
+      } else {
+        setState("error");
+        setTimeout(() => setState("idle"), 3000);
+      }
+    } catch {
+      setState("error");
+      setTimeout(() => setState("idle"), 3000);
+    }
+  };
 
   /** 下载 Markdown */
   const handleDownloadMd = () => {
@@ -124,6 +172,79 @@ export default function ExportActions({ result, API_BASE }: ExportActionsProps) 
             思维导图
           </ActionBtn>
         )}
+      </div>
+
+      <div className="mt-4 pt-4 border-t-[2px] border-black/10">
+        <h3 className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">
+          协同发布
+        </h3>
+        
+        {/* 飞书推送配置项 */}
+        <div className="flex gap-4 mb-3 text-[10px] font-bold text-gray-600">
+          <label className="flex items-center gap-1.5 cursor-pointer hover:text-black">
+            <input 
+              type="checkbox" 
+              className="accent-black w-3 h-3 border-black border-[1.5px]" 
+              checked={feishuConfig.push_card}
+              onChange={(e) => setFeishuConfig(p => ({ ...p, push_card: e.target.checked }))}
+            />
+            推送总结卡片
+          </label>
+          <label className="flex items-center gap-1.5 cursor-pointer hover:text-black">
+            <input 
+              type="checkbox" 
+              className="accent-black w-3 h-3 border-black border-[1.5px]"
+              checked={!!output_files?.pdf && feishuConfig.push_pdf}
+              onChange={(e) => setFeishuConfig(p => ({ ...p, push_pdf: e.target.checked }))}
+              disabled={!output_files?.pdf}
+            />
+            附带 PDF
+          </label>
+          <label className="flex items-center gap-1.5 cursor-pointer hover:text-black">
+            <input 
+              type="checkbox" 
+              className="accent-black w-3 h-3 border-black border-[1.5px]"
+              checked={!!output_files?.mindmap && feishuConfig.push_mindmap}
+              onChange={(e) => setFeishuConfig(p => ({ ...p, push_mindmap: e.target.checked }))}
+              disabled={!output_files?.mindmap}
+            />
+            附带导图
+          </label>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          {/* 推送飞书 */}
+          <ActionBtn
+            id="export-feishu-btn"
+            onClick={() => handleManualDeliver("feishu")}
+            accent="#4ade80"
+            disabled={feishuState === "loading"}
+          >
+            {feishuState === "loading"
+              ? "推送中..."
+              : feishuState === "ok"
+              ? "已推送!"
+              : feishuState === "error"
+              ? "推送失败"
+              : "🚀 推送飞书卡片"}
+          </ActionBtn>
+
+          {/* 同步 Jira */}
+          <ActionBtn
+            id="export-jira-btn"
+            onClick={() => handleManualDeliver("jira")}
+            accent="#22d3ee"
+            disabled={jiraState === "loading" || !result.actions?.action_items?.length}
+          >
+            {jiraState === "loading"
+              ? "同步中..."
+              : jiraState === "ok"
+              ? "已同步!"
+              : jiraState === "error"
+              ? "同步失败"
+              : "➕ 同步待办至 Jira"}
+          </ActionBtn>
+        </div>
       </div>
     </div>
   );
