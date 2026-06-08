@@ -45,6 +45,16 @@ export default function ConfigForm() {
   const [testResult, setTestResult] = useState<{ llm?: boolean; feishu?: boolean; jira?: boolean } | null>(null);
 
   useEffect(() => {
+    if (process.env.NEXT_PUBLIC_DEMO_MODE === "true") {
+      setConfig({ 
+        llm_api_key: "sk-demo-mode-hidden", 
+        llm_model: "gpt-4o-mini", 
+        asr_engine: "auto", 
+        whisper_device: "auto" 
+      } as SystemConfig);
+      setLoading(false);
+      return;
+    }
     fetch("/api/v1/config")
       .then((res) => res.json())
       .then((data) => {
@@ -65,6 +75,10 @@ export default function ConfigForm() {
 
   const handleSave = async () => {
     if (!config) return;
+    if (process.env.NEXT_PUBLIC_DEMO_MODE === "true") {
+      alert("当前为静态演示模式，无法保存系统配置。");
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch("/api/v1/config", {
@@ -86,6 +100,10 @@ export default function ConfigForm() {
   };
 
   const handleTest = async () => {
+    if (process.env.NEXT_PUBLIC_DEMO_MODE === "true") {
+      setTestResult({ llm: true, feishu: true, jira: false });
+      return;
+    }
     setTesting(true);
     setTestResult(null);
     try {

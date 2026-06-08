@@ -26,6 +26,11 @@ export default function ExportActions({ result, API_BASE }: ExportActionsProps) 
 
   const handleManualDeliver = async (type: "feishu" | "jira") => {
     const setState = type === "feishu" ? setFeishuState : setJiraState;
+    if (process.env.NEXT_PUBLIC_DEMO_MODE === "true") {
+      setState("loading");
+      setTimeout(() => setState("ok"), 800);
+      return;
+    }
     setState("loading");
     try {
       const payload = {
@@ -145,6 +150,9 @@ export default function ExportActions({ result, API_BASE }: ExportActionsProps) 
   /** 后端文件下载链接（从绝对路径中提取文件名） */
   function buildFileUrl(filePath: string): string {
     const filename = filePath.split(/[/\\]/).pop() ?? filePath;
+    if (process.env.NEXT_PUBLIC_DEMO_MODE === "true") {
+      return `/demos/${meeting_id}/${filename}`;
+    }
     return `${API_BASE}/reports/${meeting_id}/${filename}`;
   }
 

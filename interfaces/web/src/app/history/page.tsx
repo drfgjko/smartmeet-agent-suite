@@ -34,6 +34,36 @@ export default function HistoryPage() {
   const router = useRouter();
 
   const fetchReports = async () => {
+    if (process.env.NEXT_PUBLIC_DEMO_MODE === "true") {
+      setReports([
+        {
+          meeting_id: "9fc6da92-a49",
+          title: "应对面霜成分错误导致消费者皮肤老化问题的紧急会议",
+          status: "COMPLETED",
+          duration: 366,
+          num_speakers: 4,
+          created_at: 1717855097000
+        },
+        {
+          meeting_id: "a44ca6a1-b64",
+          title: "大模型训练优化与架构创新技术分享",
+          status: "COMPLETED",
+          duration: 1580,
+          num_speakers: 2,
+          created_at: 1717855097000
+        },
+        {
+          meeting_id: "e8f12a73-e24",
+          title: "第十九小组创业产品选择讨论",
+          status: "COMPLETED",
+          duration: 360,
+          num_speakers: 9,
+          created_at: 1717855097000
+        }
+      ]);
+      setLoading(false);
+      return;
+    }
     try {
       const res = await fetch(`${API_BASE}/api/v1/reports`);
       const data = await res.json();
@@ -52,6 +82,11 @@ export default function HistoryPage() {
   const handleDelete = async (e: React.MouseEvent, meetingId: string) => {
     e.stopPropagation(); // 防止触发卡片点击跳转
     if (!confirm("确认彻底删除该会议的所有产物记录吗？此操作不可逆！")) return;
+
+    if (process.env.NEXT_PUBLIC_DEMO_MODE === "true") {
+      alert("当前为静态演示模式，数据无法真实删除。");
+      return;
+    }
 
     try {
       const res = await fetch(`${API_BASE}/api/v1/reports/${meetingId}`, {
@@ -80,7 +115,7 @@ export default function HistoryPage() {
   return (
     <div className="w-full h-full flex flex-col bg-[#f4f4f0]">
       {/* 顶部 Header */}
-      <div className="flex-shrink-0 p-8 border-b-[4px] border-black bg-white">
+      <div className="flex-shrink-0 p-8 border-b-[4px] border-black bg-white relative">
         <h1 className="text-5xl font-black tracking-tighter">历史记录</h1>
         <p className="font-bold text-gray-500 mt-3 text-sm">
           查看以往的会议分析产物

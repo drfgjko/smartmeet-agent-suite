@@ -87,15 +87,15 @@ export default function Sidebar() {
       <div className="p-4 border-t-4 border-black bg-[#f4f4f0]">
         <div className="border-[3px] border-black bg-white p-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex flex-col items-center justify-center">
           {isCollapsed ? (
-            <div className="w-4 h-4 border-2 border-black bg-[#4ade80]"></div>
+            <div className={`w-4 h-4 border-2 border-black ${process.env.NEXT_PUBLIC_DEMO_MODE === "true" ? "bg-[#ffc900]" : "bg-[#4ade80]"}`}></div>
           ) : (
             <>
               <div className="flex items-center w-full">
-                <div className="w-3 h-3 border-2 border-black bg-[#4ade80] mr-2 shrink-0"></div>
-                <span className="text-sm font-bold text-black truncate">运行中</span>
+                <div className={`w-3 h-3 border-2 border-black mr-2 shrink-0 ${process.env.NEXT_PUBLIC_DEMO_MODE === "true" ? "bg-[#ffc900]" : "bg-[#4ade80]"}`}></div>
+                <span className="text-sm font-bold text-black truncate">{process.env.NEXT_PUBLIC_DEMO_MODE === "true" ? "静态演示" : "运行中"}</span>
               </div>
-              <div className="mt-2 text-xs font-bold text-gray-600 tracking-wider border-t-2 border-black pt-2 w-full truncate">
-                本地网络
+              <div className={`mt-2 text-[10px] font-black tracking-wider border-t-2 border-black pt-2 w-full truncate ${process.env.NEXT_PUBLIC_DEMO_MODE === "true" ? "text-[#ffc900] bg-black px-1 uppercase" : "text-gray-600"}`}>
+                {process.env.NEXT_PUBLIC_DEMO_MODE === "true" ? "VERCEL ENV" : "本地网络"}
               </div>
             </>
           )}

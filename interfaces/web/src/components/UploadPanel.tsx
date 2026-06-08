@@ -50,6 +50,10 @@ export default function UploadPanel({ API_BASE, onSuccess }: UploadPanelProps) {
   // ── URL 模式：SSE 流式处理 ──
   const handleUrlSubmit = useCallback(async () => {
     if (!url.trim() || loading) return;
+    if (process.env.NEXT_PUBLIC_DEMO_MODE === "true") {
+      setError("当前为 Vercel 静态演示模式，请在本地部署以使用真实处理能力");
+      return;
+    }
     setLoading(true);
     setError("");
     setEvents([]);
@@ -123,6 +127,10 @@ export default function UploadPanel({ API_BASE, onSuccess }: UploadPanelProps) {
   // ── 文件模式：上传 → 处理 ──
   const handleFileSubmit = useCallback(async () => {
     if (!uploadFile || loading) return;
+    if (process.env.NEXT_PUBLIC_DEMO_MODE === "true") {
+      setError("当前为 Vercel 静态演示模式，请在本地部署以使用真实处理能力");
+      return;
+    }
     setLoading(true);
     setError("");
     setEvents([]);

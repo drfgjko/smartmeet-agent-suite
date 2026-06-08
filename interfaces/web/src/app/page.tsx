@@ -73,6 +73,8 @@ const API_BASE =
     ? `${window.location.protocol}//${window.location.hostname}:8000`
     : "http://api:8000";
 
+const IS_DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+
 export default function Home() {
   const [result, setResult] = useState<Result | null>(null);
   const [currentAudioTime, setCurrentAudioTime] = useState(0);
@@ -90,7 +92,15 @@ export default function Home() {
       const params = new URLSearchParams(window.location.search);
       const mid = params.get("meeting_id");
       if (mid) {
-        fetch(`${API_BASE}/reports/${mid}/final_result.json`)
+        if (IS_DEMO_MODE && mid === "mock-37fe9e7b") {
+          setResult(MOCK_RESULT as any);
+          setCurrentAudioTime(0);
+          return;
+        }
+        const fetchUrl = IS_DEMO_MODE
+          ? `/demos/${mid}/final_result.json`
+          : `${API_BASE}/reports/${mid}/final_result.json`;
+        fetch(fetchUrl)
           .then((res) => {
             if (!res.ok) throw new Error("Result not found");
             return res.json();
@@ -114,7 +124,9 @@ export default function Home() {
 
   // 构建音频 URL
   const audioUrl = result?.meeting_id
-    ? `${API_BASE}/api/v1/reports/${result.meeting_id}/audio`
+    ? IS_DEMO_MODE
+      ? `/demos/${result.meeting_id}/audio.mp3`
+      : `${API_BASE}/api/v1/reports/${result.meeting_id}/audio`
     : "";
 
   // 从 insights.speaker_stats 提取发言人统计数据
@@ -125,7 +137,7 @@ export default function Home() {
       {/* ─── 上传 / 结果 状态切换 ─── */}
       {!result ? (
         /* 上传状态 */
-        <div className="p-8 max-w-5xl mx-auto w-full">
+        <div className="p-8 max-w-5xl mx-auto w-full relative">
           <div className="mb-12 border-b-[4px] border-black pb-6 flex items-end justify-between">
             <div>
               <h1 className="text-6xl font-black tracking-tighter">工作台</h1>
@@ -149,7 +161,7 @@ export default function Home() {
         /* 结果状态 — 两栏布局 */
         <div className="flex flex-col h-full overflow-hidden">
           {/* 顶部标题栏 */}
-          <div className="flex items-center justify-between px-8 py-4 border-b-[3px] border-black bg-white flex-shrink-0">
+          <div className="flex items-center justify-between px-8 py-4 border-b-[3px] border-black bg-white flex-shrink-0 relative">
             <div>
               <h1 className="text-xl font-black leading-tight truncate max-w-[500px]">
                 {result.title}
