@@ -44,3 +44,15 @@ def dump_outputs_for_json(final_state: dict[str, Any]) -> dict[str, Any]:
         "insights": model_dump_if_needed(final_state.get("insights")),
         "followup": model_dump_if_needed(final_state.get("followup")),
     }
+
+
+def _state_value(state: object, key: str, default):
+    """
+    Safely extract a value from a Pydantic model state.
+    """
+    if hasattr(state, "model_fields_set"):
+        if key in state.model_fields_set:
+            value = getattr(state, key)
+            return default if value is None else value
+        return default
+    raise TypeError(f"Expected Pydantic model, got {type(state).__name__}")

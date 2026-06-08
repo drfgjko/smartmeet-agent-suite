@@ -11,7 +11,7 @@ from datetime import datetime
 from loguru import logger
 
 from schemas import ActionItem, ActionOutput
-from ._utils import _state_value
+from utils.serialization import _state_value
 
 ACTION_SYSTEM_PROMPT = """你是一位专业的任务提取助手。你的任务是从会议转写文本中提取所有行动项/待办事项。
 提取规则：

@@ -9,10 +9,8 @@
 
 from __future__ import annotations
 
-import json
 from typing import Any
 from loguru import logger
-from pydantic import BaseModel, Field
 
 from schemas import MeetingGraphState, SpeakerMapping
 
@@ -60,7 +58,7 @@ class SpeakerInferenceAgent:
                 for item in speaker_mapping.mappings:
                     mapping_dict[item.original_label] = item.inferred_name
             except Exception as e:
-                logger.warning(f"[{state.meeting_id}] Agent - SpeakerInference: JSON 解析失败 ({e})，响应内容: {response}")
+                logger.warning(f"[{state.meeting_id}] Agent - SpeakerInference: JSON 解析失败 ({e})，响应内容: {data}")
                 mapping_dict = {}
 
             # 过滤掉无意义的自映射 (比如 'Speaker 1': 'Speaker 1')
