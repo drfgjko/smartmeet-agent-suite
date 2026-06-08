@@ -1,6 +1,6 @@
-# Agent 协作规范与约束 (AGENTS.md)
+# 流水线与节点协作规范 (AGENTS.md)
 
-本文档旨在约束本项目中所有 AI 助手（包括但不限于 Cursor、Agentic 工作流等）的行为准则、代码规范与提交流程。
+本文档旨在约束本项目中大模型处理节点（Node）的行为准则、代码规范与提交流程。
 回答时使用中文。
 必须使用中文注释。
 
@@ -20,7 +20,7 @@
    - 配置环境时需在 .env 中声明 PYTHONIOENCODING=utf-8。
 4. 模块边界约束：
    - services 层的子模块之间禁止直接导入下划线前缀的私有函数，必须通过 __init__.py 暴露的公开 API 调用。
-   - agents 层的每个 Agent 的输入输出必须符合 schemas/ 中定义的契约模型，禁止使用裸 dict 传递结构化数据。
+   - agents 层的每个处理节点 的输入输出必须符合 schemas/ 中定义的契约模型，禁止使用裸 dict 传递结构化数据。
 5. LLM 客户端注入与统一规范：所有需要调用 LLM 的模块必须通过构造函数注入由 services.integrations.llm_client.create_llm_client() 产生的统一客户端，禁止在模块内部直接实例化 OpenAI() 或使用废弃的特定厂商客户端（如原 MiniMaxClient）。
 6. 终端执行失败熔断机制：当遇到跑脚本、指令多次报错失败时，应该立刻停止尝试并向用户反馈。因为许多问题源于 Agent 环境限制（如 Conda 路径、Windows 权限等），此时应直接提供终端指令让用户在其本地环境执行，避免无意义的重试。
 
@@ -54,7 +54,7 @@ Made-with: Gemini 3.1 Pro
 注：<type> 可选值为 feat, fix, chore, refactor, docs 等。
 
 ## 四、项目架构与环境约束
-1. 项目名称：smartmeet-agent-suite (企业级多模态智能会议与全链路协同 Agent 解决方案)
+1. 项目名称：smartmeet-agent-suite (基于大模型与强数据契约的智能会议自动化流水线)
 2. 环境基底：推崇基于 Miniconda 的环境管理，以固化底层科学计算库（PyTorch）和媒体处理库（FFmpeg）。执行测试、启动服务或运行脚本时，必须在对应的 miniconda 虚拟环境中进行（例如使用 `conda run -n smartmeet python -m pytest ...`），以防止因全局环境缺少依赖而运行失败。
 3. 受限优雅降级：优雅降级设计仅限大模型等外部基础设施失效，或本地重型计算库（如 GPU 依赖）缺失的基建层硬件失效场景。降级发生时，必须向上层显式报告“降级状态”或抛出特定异常，禁止掩盖真实错误。默认倾向使用成本优化方案（如 Cloudflare Workers AI 提供的 Serverless 模型）。
 4. 模块依赖方向约束：

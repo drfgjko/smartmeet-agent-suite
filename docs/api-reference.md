@@ -1,4 +1,4 @@
-# SmartMeet Agent Suite API 参考文档
+# SmartMeet API 参考文档
 
 ## 一、基础信息
 
@@ -20,7 +20,7 @@ GET /
 
 ```json
 {
-  "name": "SmartMeet Agent Suite API",
+  "name": "SmartMeet API",
   "version": "1.0.0",
   "docs": "/docs",
   "websocket": "ws://localhost:8000/ws/meeting/{meeting_id}"

@@ -1,14 +1,14 @@
-# SmartMeet Agent Suite 架构设计
+# SmartMeet 架构设计
 
 ## 一、系统概述
 
-SmartMeet Agent Suite 是一个企业级多模态智能会议与全链路协同 Agent 解决方案。它通过 **LangGraph 多智能体编排** 与 **音视频媒体处理引擎** 的深度融合，实现从原始音视频输入到结构化报告、待办同步、资产分发的全自动化闭环。
+SmartMeet 是一个基于大模型的企业级智能会议自动化流水线。它通过 **LangGraph 流水线编排** 与 **音视频媒体处理引擎** 的深度融合，实现从原始音视频输入到结构化报告、待办同步、资产分发的全自动化闭环。
 
 ### 核心设计原则
 
-- **Pipeline + Fan-out/Fan-in 编排**：媒体处理阶段严格串行（Pipeline），Agent 分析阶段并行执行（Fan-out），最终汇聚到 Follow-Up Agent（Fan-in）。
-- **Schema-First 数据契约**：Agent 间传递的结构化数据通过 Pydantic 模型定义，模块边界从"约定"变为"接口"约束。
-- **LLM 客户端统一注入**：所有 Agent 统一通过构造函数注入由 `create_llm_client()` 工厂创建的客户端，支持 OpenAI/DeepSeek/MiniMax/Cloudflare Workers AI 等多厂商。
+- **Pipeline + Fan-out/Fan-in 编排**：媒体处理阶段严格串行（Pipeline），LLM 节点分析阶段并行执行（Fan-out），最终汇聚到 交付与分发管线（Fan-in）。
+- **Schema-First 数据契约**：节点间传递的结构化数据通过 Pydantic 模型定义，模块边界从"约定"变为"接口"约束。
+- **LLM 客户端统一注入**：所有节点 统一通过构造函数注入由 `create_llm_client()` 工厂创建的客户端，支持 OpenAI/DeepSeek/MiniMax/Cloudflare Workers AI 等多厂商。
 - **Fail-Fast 与显式降级**：核心链路失败直接报错；非核心链路降级时记录显式日志和状态标记，禁止静默失败。
 
 ---
@@ -40,12 +40,12 @@ graph TB
         C5["关键帧提取 Keyframes<br/>场景检测·字幕对齐"]
     end
 
-    %% ===== 多 Agent 核心层 =====
-    subgraph Agents["多 Agent 协作层 / LangGraph"]
+    %% ===== 大模型流水线核心层 =====
+    subgraph Agents["流水线协作层 / LangGraph"]
         D0["状态图 StateGraph<br/>MeetingGraphState"]
-        D1["Summary Agent<br/>结构化摘要"]
-        D2["Action Agent<br/>待办提取·外部同步"]
-        D3["Insight Agent<br/>发言洞察·情绪分析"]
+        D1["Summary 节点<br/>结构化摘要"]
+        D2["Action 节点<br/>待办提取·外部同步"]
+        D3["Insight 节点<br/>发言洞察·情绪分析"]
     end
 
     %% ===== 文档与服务层 =====
@@ -69,7 +69,6 @@ graph TB
     subgraph Gateways["多端接入网关"]
         G1["Web 控制台<br/>Next.js (port 3000)"]
         G2["CLI 命令行客户端<br/>smartmeet process/run"]
-        G3["MCP 协议服务器<br/>大模型上下文协议"]
     end
 
     %% ===== 连接关系 =====
@@ -126,7 +125,7 @@ graph TB
 | [downloader.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/media_engine/downloader.py) | yt-dlp 封装，支持 YouTube/Bilibili 等平台的音视频下载 |
 | [parser.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/media_engine/parser.py) | 在线链接解析，识别平台类型与资源格式 |
 
-### 3.3 多 Agent 协作层 `agents/` + `workflows/`
+### 3.3 流水线协作层 `agents/` + `workflows/`
 
 | 模块 | 职责 |
 |------|------|
@@ -135,7 +134,7 @@ graph TB
 | [agents/action_agent.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/agents/action_agent.py) | 提取行动项（谁/做什么/截止时间） |
 | [agents/insight_agent.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/agents/insight_agent.py) | 发言统计、情绪分析、效率评分、关键词提取 |
 | [agents/speaker_inference_agent.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/agents/speaker_inference_agent.py) | 根据对话上下文推断匿名发言人的真实姓名，执行全局身份替换 |
-| [schemas/meeting_schemas.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/schemas/meeting_schemas.py) | Pydantic 数据契约层，定义 Agent 间传递的结构化数据类型 |
+| [schemas/meeting_schemas.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/schemas/meeting_schemas.py) | Pydantic 数据契约层，定义 节点间传递的结构化数据类型 |
 
 ### 3.4 服务层 `services/`
 
@@ -159,7 +158,6 @@ graph TB
 |------|------|--------|
 | [web/](file:///d:/Workspace/agent-project/smartmeet-agent-suite/web/) | 前端控制台 | Next.js 14 + React + TailwindCSS |
 | [cli/](file:///d:/Workspace/agent-project/smartmeet-agent-suite/cli/) | 命令行客户端 | Python Click + Rich |
-| [mcp/](file:///d:/Workspace/agent-project/smartmeet-agent-suite/mcp/) | MCP 协议服务器 | TypeScript + @modelcontextprotocol/sdk |
 
 ---
 
@@ -169,7 +167,6 @@ graph TB
 
 ```mermaid
 sequenceDiagram
-    participant Client as 客户端 (Web/CLI/MCP)
     participant API as FastAPI
     participant App as ApplicationService
     participant Media as MediaEngine
@@ -187,11 +184,11 @@ sequenceDiagram
 
     App->>Graph: run_meeting_pipeline()
     
-    par Summary Agent
+    par Summary 节点
         Graph->>Graph: 结构化摘要生成
-    and Action Agent
+    and Action 节点
         Graph->>Graph: 行动项提取
-    and Insight Agent
+    and Insight 节点
         Graph->>Graph: 发言洞察+情绪分析
     end
 
@@ -230,7 +227,7 @@ sequenceDiagram
     App->>Media: 预处理 → 转录 → 说话人分离
     App->>Graph: run_meeting_pipeline()
     
-    Graph-->>WS: 实时推送各 Agent 结果
+    Graph-->>WS: 实时推送各节点 结果
     WS->>Client: {"type": "summary", ...}
     WS->>Client: {"type": "actions", ...}
     WS->>Client: {"type": "insights", ...}
@@ -239,7 +236,7 @@ sequenceDiagram
 
 ---
 
-## 五、Agent 协作模式
+## 五、节点协作模式
 
 ```mermaid
 graph LR
@@ -251,9 +248,9 @@ graph LR
     end
 
     subgraph FanOut["Fan-Out 并行阶段"]
-        S1["Summary Agent<br/>结构化摘要"]
-        S2["Action Agent<br/>待办提取+同步"]
-        S3["Insight Agent<br/>发言洞察+情绪"]
+        S1["Summary 节点<br/>结构化摘要"]
+        S2["Action 节点<br/>待办提取+同步"]
+        S3["Insight 节点<br/>发言洞察+情绪"]
     end
 
     subgraph FanIn["Delivery 交付阶段"]
@@ -270,7 +267,7 @@ graph LR
     DEL --> DS["飞书/Jira 同步与分发"]
 ```
 
-### Agent 间数据契约
+### 节点间数据契约
 
 | 数据模型 | 来源 Agent | 消费方 | 核心字段 |
 |----------|-----------|--------|----------|
@@ -282,7 +279,7 @@ graph LR
 
 ## 六、LLM 客户端统一注入
 
-所有 Agent 通过构造函数接收统一的 `UnifiedLLMClient` 实例，由工厂方法 `create_llm_client()` 创建：
+所有节点 通过构造函数接收统一的 `UnifiedLLMClient` 实例，由工厂方法 `create_llm_client()` 创建：
 
 ```python
 from services.integrations.llm_client import create_llm_client
@@ -308,13 +305,11 @@ llm = create_llm_client(
 graph TB
     Web["Web 前端控制台<br/>localhost:3000"]
     CLI["CLI 命令行工具<br/>smartmeet process/run"]
-    MCP["MCP 协议服务器<br/>大模型 Tool 调用"]
     
     API["FastAPI 统一网关<br/>localhost:8000"]
     
     Web -->|HTTP/SSE| API
     CLI -->|HTTP/SSE| API
-    MCP -->|HTTP| API
     
     API --> Services["后端服务层"]
 ```
@@ -336,7 +331,7 @@ smartmeet-agent-suite/
 │       ├── render.py           # 原子化渲染 API
 │       ├── tasks.py            # 异步任务查询 API
 │       └── websocket.py        # 实时录音 WebSocket
-├── agents/                     # 多 Agent 协作层
+├── agents/                     # 流水线协作层
 │   ├── summary_agent.py        # 摘要 Agent
 │   ├── action_agent.py         # 待办 Agent
 │   ├── insight_agent.py        # 洞察 Agent
@@ -372,7 +367,6 @@ smartmeet-agent-suite/
 ├── web/                        # Web 前端控制台
 │   ├── src/app/page.tsx
 │   └── package.json
-├── mcp/                        # MCP 协议服务器
 │   ├── src/index.ts
 │   └── package.json
 ├── assets/                     # CSS/LaTeX 模板文件

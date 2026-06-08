@@ -1,4 +1,4 @@
-# SmartMeet Agent Suite 部署与运行指南
+# SmartMeet 部署与运行指南
 
 ## 一、环境需求
 
@@ -32,7 +32,7 @@ conda activate smartmeet
 - PyTorch 2.1+（CUDA 12.1 加速）
 - FFmpeg 4.4+
 - Faster-Whisper / WhisperX / PyAnnote / FunASR（语音处理）
-- LangGraph / LangChain（Agent 框架）
+- LangGraph / LangChain（流水线框架）
 - FastAPI / Uvicorn（API 网关）
 - WeasyPrint（PDF 渲染）
 - yt-dlp（音视频下载）
@@ -174,7 +174,7 @@ MCP 服务器通过 STDIO 协议与支持 MCP 的大模型客户端通信。
 | `/api/v1/analyze` | POST | 原子化分析接口（纯 JSON 输出） |
 | `/api/v1/render` | POST | 原子化渲染与外部分发接口 |
 | `/api/v1/tasks/{task_id}` | GET | 异步任务轮询查询接口 |
-| `/ws/meeting/{meeting_id}` | WebSocket | 实时录音与多 Agent 处理 |
+| `/ws/meeting/{meeting_id}` | WebSocket | 实时录音与并发节点 处理 |
 
 详细接口文档见 [api-reference.md](api-reference.md)。
 
@@ -209,7 +209,7 @@ curl -X POST http://localhost:8000/api/v1/recording/process \
 通过 WebSocket 连接 `ws://localhost:8000/ws/meeting/my-meeting-001`，然后：
 1. 持续发送音频二进制帧
 2. 发送 `{"type": "stop"}` 触发处理
-3. 接收各 Agent 的实时分析结果
+3. 接收各节点 的实时分析结果
 
 ---
 
