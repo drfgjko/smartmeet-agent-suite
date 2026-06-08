@@ -1,0 +1,11 @@
+{
+  "framework": "nextjs",
+  "env": {
+    "NEXT_PUBLIC_DEMO_MODE": "true"
+  },
+  "build": {
+    "env": {
+      "NEXT_PUBLIC_DEMO_MODE": "true"
+    }
+  }
+}
