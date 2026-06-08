@@ -4,7 +4,7 @@
 """
 import json
 from typing import Any, Optional
-from models.task import SessionLocal, TaskRecord
+from .task_model import SessionLocal, TaskRecord
 from schemas.task_schema import TaskStatusResponse
 
 class TaskService:

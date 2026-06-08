@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field
 
 from schemas import JobConfig, ChannelConfig
 from services.integrations import create_llm_client, FeishuClient, JiraClient
-from services.checkpoint_service import CheckpointService
+from services.core.checkpoint_service import CheckpointService
 from workflows.meeting_workflow import run_meeting_pipeline
 
 router = APIRouter(prefix="/api/v1", tags=["analyze"])

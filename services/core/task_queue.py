@@ -5,7 +5,7 @@
 import asyncio
 from typing import Any, Coroutine
 from loguru import logger
-from services.task_service import TaskService
+from .task_service import TaskService
 from services.delivery import WebhookService
 
 class TaskQueue:

@@ -22,7 +22,7 @@ from loguru import logger
 from services.pipeline import run_offline_pipeline
 from schemas import JobConfig
 from schemas.task_schema import TaskCreateResponse
-from services.task_queue import task_queue
+from services.core.task_queue import task_queue
 
 router = APIRouter(prefix="/api/v1/recording", tags=["recording"])
 

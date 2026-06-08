@@ -29,7 +29,7 @@ from schemas import (
 from services import ReportComposer, ReportRenderer, MindMapService, ReportDelivery
 from services.delivery import WebhookService
 from services.integrations import create_llm_client, FeishuClient, JiraClient
-from services.checkpoint_service import CheckpointService
+from services.core.checkpoint_service import CheckpointService
 
 router = APIRouter(prefix="/api/v1", tags=["render"])
 

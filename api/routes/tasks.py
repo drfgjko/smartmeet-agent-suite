@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from fastapi import APIRouter, HTTPException
 from schemas.task_schema import TaskStatusResponse
-from services.task_service import TaskService
+from services.core.task_service import TaskService
 
 router = APIRouter(prefix="/api/v1/tasks", tags=["tasks"])
 task_service = TaskService()

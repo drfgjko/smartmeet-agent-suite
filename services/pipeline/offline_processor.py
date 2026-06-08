@@ -23,7 +23,7 @@ from services.media_engine import (
 from workflows.meeting_workflow import run_meeting_pipeline
 from services.integrations import create_llm_client, FeishuClient, JiraClient
 from schemas import JobConfig
-from services.checkpoint_service import CheckpointService
+from services.core.checkpoint_service import CheckpointService
 from utils import find_project_root, dump_outputs_for_json, create_fallback_diarization, parse_transcript_file
 from schemas import SummaryOutput, ActionOutput, InsightOutput
 
