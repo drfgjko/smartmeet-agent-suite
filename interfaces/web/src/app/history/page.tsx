@@ -94,9 +94,13 @@ export default function HistoryPage() {
             加载中...
           </div>
         ) : reports.length === 0 ? (
-          <div className="text-center mt-32">
-            <span className="text-6xl mb-4 inline-block">📭</span>
-            <p className="font-black text-2xl text-gray-400">暂无历史记录</p>
+          <div className="flex items-center justify-center mt-20">
+            <div className="border-[4px] border-black bg-[#ffc900] shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] p-12 text-center transform -rotate-1 max-w-xl">
+              <h2 className="text-5xl font-black text-black tracking-tighter uppercase">空空如也</h2>
+              <div className="w-full h-1 bg-black my-6"></div>
+              <p className="text-xl font-black text-black/80">目前没有任何会议历史记录</p>
+              <p className="text-sm font-bold text-black mt-2 bg-white inline-block px-3 py-1 border-2 border-black">快去首页处理一个新的录音吧！</p>
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">

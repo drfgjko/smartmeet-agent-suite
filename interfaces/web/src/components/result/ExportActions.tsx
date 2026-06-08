@@ -74,12 +74,55 @@ export default function ExportActions({ result, API_BASE }: ExportActionsProps) 
     URL.revokeObjectURL(a.href);
   };
 
+  /** 提取纪要纯文本辅助函数 */
+  const formatSummaryToText = (summary: any): string => {
+    if (!summary) return "";
+    let text = "";
+    if (summary.date) text += `日期：${summary.date}\n`;
+    if (summary.participants?.length) text += `参会人：${summary.participants.join(" · ")}\n`;
+    text += "\n";
+
+    if (summary.topics?.length) {
+      summary.topics.forEach((t: any, i: number) => {
+        text += `议题 ${i + 1}: ${t.title}\n`;
+        if (t.discussion_points?.length) {
+          t.discussion_points.forEach((pt: string) => {
+            text += `  - ${pt}\n`;
+          });
+        }
+        if (t.conclusion) {
+          text += `  结论: ${t.conclusion}\n`;
+        }
+        text += "\n";
+      });
+    }
+
+    if (summary.decisions?.length) {
+      text += "【会议决策】\n";
+      summary.decisions.forEach((d: string, i: number) => {
+        text += `  #${i + 1} ${d}\n`;
+      });
+      text += "\n";
+    }
+
+    if (summary.next_steps?.length) {
+      text += "【下一步计划】\n";
+      summary.next_steps.forEach((s: string, i: number) => {
+        text += `  ${i + 1}. ${s}\n`;
+      });
+      text += "\n";
+    }
+
+    return text.trim();
+  };
+
   /** 复制纪要文本 */
   const handleCopy = async () => {
-    if (!content) return;
+    if (!result.summary) return;
     setCopyState("loading");
     try {
-      await navigator.clipboard.writeText(content);
+      const plainText = formatSummaryToText(result.summary);
+      await navigator.clipboard.writeText(plainText);
       setCopyState("ok");
       setTimeout(() => setCopyState("idle"), 2000);
     } catch {
@@ -88,10 +131,21 @@ export default function ExportActions({ result, API_BASE }: ExportActionsProps) 
     }
   };
 
+  /** 下载逐字稿 */
+  const handleDownloadTranscript = () => {
+    if (!result.diarized_transcript) return;
+    const blob = new Blob([result.diarized_transcript], { type: "text/plain;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "transcript.txt";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
   /** 后端文件下载链接（从绝对路径中提取文件名） */
   function buildFileUrl(filePath: string): string {
     const filename = filePath.split(/[/\\]/).pop() ?? filePath;
-    return `${API_BASE}/api/v1/reports/${meeting_id}/${filename}`;
+    return `${API_BASE}/reports/${meeting_id}/${filename}`;
   }
 
   const hasPdf = !!output_files?.pdf && !!meeting_id;
@@ -110,7 +164,7 @@ export default function ExportActions({ result, API_BASE }: ExportActionsProps) 
           id="export-copy-btn"
           onClick={handleCopy}
           accent="#22d3ee"
-          disabled={!content}
+          disabled={!result.summary}
         >
           {copyState === "ok" ? "已复制!" : copyState === "error" ? "失败" : "复制纪要"}
         </BrutalButton>
@@ -151,9 +205,18 @@ export default function ExportActions({ result, API_BASE }: ExportActionsProps) 
           href={hasMindmap ? buildFileUrl(output_files!.mindmap!) : undefined}
           disabled={!hasMindmap}
           accent="#4ade80"
-          className="col-span-2"
         >
           思维导图
+        </BrutalButton>
+
+        {/* 导出逐字稿 */}
+        <BrutalButton
+          id="export-transcript-btn"
+          onClick={handleDownloadTranscript}
+          disabled={!result.diarized_transcript}
+          accent="#f87171"
+        >
+          导出逐字稿
         </BrutalButton>
       </div>
 

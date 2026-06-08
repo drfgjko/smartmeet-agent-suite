@@ -115,7 +115,10 @@ export default function TranscriptTab({
           <div
             key={i}
             data-line={i}
-            className={`group flex gap-3 px-3 py-2 rounded transition-colors duration-150
+            onClick={() => {
+              if (line.seconds >= 0) onSeek(line.seconds);
+            }}
+            className={`group flex gap-3 px-3 py-2 rounded transition-colors duration-150 ${line.seconds >= 0 ? "cursor-pointer" : ""}
               ${isActive ? "bg-[#ffc900]/20 border-l-[3px] border-[#ffc900]" : "hover:bg-black/5 border-l-[3px] border-transparent"}`}
           >
             {/* 说话人标签 */}
@@ -133,16 +136,14 @@ export default function TranscriptTab({
             {/* 主体：时间戳 + 文本 */}
             <div className="flex-1 min-w-0">
               {line.seconds >= 0 && (
-                <button
-                  onClick={() => onSeek(line.seconds)}
-                  id={`transcript-seek-${i}`}
-                  className="text-xs font-black text-gray-400 font-mono
-                    hover:text-black hover:bg-[#ffc900] px-1 py-0.5 mr-2
-                    transition-colors border border-transparent hover:border-black"
+                <span
+                  className="text-xs font-black text-gray-400 font-mono inline-block
+                    group-hover:text-black group-hover:bg-[#ffc900] px-1 py-0.5 mr-2
+                    transition-colors border border-transparent group-hover:border-black rounded-sm"
                   title={`跳转到 ${line.timeStr}`}
                 >
                   {line.timeStr}
-                </button>
+                </span>
               )}
               <span className={`text-sm leading-relaxed ${isActive ? "font-bold" : ""}`}>
                 {line.text}
