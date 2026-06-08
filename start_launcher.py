@@ -76,17 +76,17 @@ def _print_banner() -> None:
 
 def _check_prerequisites() -> bool:
     """检查启动前置条件，返回 False 表示不满足。"""
-    web_dir = PROJECT_ROOT / "web"
+    web_dir = PROJECT_ROOT / "interfaces" / "web"
     if not web_dir.exists():
         print(f"[错误] 前端目录不存在: {web_dir}")
         return False
 
     node_modules = web_dir / "node_modules"
     if not node_modules.exists():
-        print("[错误] 前端依赖未安装，请先在 web/ 目录下执行: npm install")
+        print("[错误] 前端依赖未安装，请先在 interfaces/web/ 目录下执行: npm install")
         return False
 
-    api_main = PROJECT_ROOT / "api" / "main.py"
+    api_main = PROJECT_ROOT / "interfaces" / "api" / "main.py"
     if not api_main.exists():
         print(f"[错误] 后端入口不存在: {api_main}")
         return False
@@ -106,7 +106,7 @@ def _build_window_cmd(title: str, work_dir: Path, command: str) -> str:
 def _launch_frontend() -> subprocess.Popen | None:
     """启动前端 Next.js 开发服务器。"""
     print("[1/2] 正在启动前端服务 (Next.js)...")
-    web_dir = PROJECT_ROOT / "web"
+    web_dir = PROJECT_ROOT / "interfaces" / "web"
     if IS_WINDOWS:
         cmd = _build_window_cmd("SmartMeet Frontend - Next.js", web_dir, "npm run dev")
         subprocess.run(cmd, shell=True, cwd=str(PROJECT_ROOT))
@@ -118,7 +118,7 @@ def _launch_frontend() -> subprocess.Popen | None:
 def _launch_backend() -> subprocess.Popen | None:
     """启动后端 FastAPI 服务。"""
     print("[2/2] 正在启动后端服务 (FastAPI)...")
-    backend_command = "conda run --no-capture-output -n smartmeet python -m api.main"
+    backend_command = "conda run --no-capture-output -n smartmeet python -m interfaces.api.main"
     if IS_WINDOWS:
         cmd = _build_window_cmd("SmartMeet Backend - FastAPI", PROJECT_ROOT, backend_command)
         subprocess.run(cmd, shell=True, cwd=str(PROJECT_ROOT))

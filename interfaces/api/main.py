@@ -17,14 +17,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from api.routes.recording import router as recording_router
-from api.routes.websocket import router as ws_router
-from api.routes.analyze import router as analyze_router
-from api.routes.render import router as render_router
-from api.routes.tasks import router as tasks_router
-from api.routes.deliver import router as deliver_router
-from api.routes.config import router as config_router
-from api.routes.reports import router as reports_router
+from interfaces.api.routes.recording import router as recording_router
+from interfaces.api.routes.websocket import router as ws_router
+from interfaces.api.routes.analyze import router as analyze_router
+from interfaces.api.routes.render import router as render_router
+from interfaces.api.routes.tasks import router as tasks_router
+from interfaces.api.routes.deliver import router as deliver_router
+from interfaces.api.routes.config import router as config_router
+from interfaces.api.routes.reports import router as reports_router
 
 _REPORTS_DIR = Path(__file__).resolve().parents[1] / "reports"
 _REPORTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -94,8 +94,7 @@ def start():
         border_style="cyan"
     ))
     console.print()
-    
-    uvicorn.run("api.main:app", host="0.0.0.0", port=8000, reload=reload_enabled)
+    uvicorn.run("interfaces.api.main:app", host="0.0.0.0", port=8000, reload=reload_enabled)
 
 if __name__ == "__main__":
     start()
