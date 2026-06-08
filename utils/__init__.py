@@ -7,13 +7,16 @@
 """
 
 from .serialization import model_dump_if_needed, dump_outputs_for_json
-from .file_system import find_project_root
+from .file_system import find_project_root, get_workspace_dir, get_reports_dir, get_tmp_dir
 from .text_parser import parse_transcript_file, create_fallback_diarization
 
 __all__ = [
     "model_dump_if_needed",
     "dump_outputs_for_json",
     "find_project_root",
+    "get_workspace_dir",
+    "get_reports_dir",
+    "get_tmp_dir",
     "parse_transcript_file",
     "create_fallback_diarization",
 ]

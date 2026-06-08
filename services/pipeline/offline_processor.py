@@ -73,8 +73,8 @@ async def run_offline_pipeline(
         - errors: 处理过程中的错误列表
     """
     # Step 1: 创建临时工作目录
-    tmp_base = find_project_root() / "workspace" / "tmp"
-    tmp_base.mkdir(parents=True, exist_ok=True)
+    from utils import get_tmp_dir
+    tmp_base = get_tmp_dir()
     work_dir = Path(tempfile.mkdtemp(prefix="smartmeet_rec_", dir=str(tmp_base)))
     try:
 
@@ -182,8 +182,8 @@ async def run_offline_pipeline(
                 logger.error(f"[ApplicationService] 保存转录检查点失败: {tx_err}")
 
             try:
-                reports_dir = find_project_root() / "workspace" / "reports" / meeting_id
-                reports_dir.mkdir(parents=True, exist_ok=True)
+                from utils import get_reports_dir
+                reports_dir = get_reports_dir() / meeting_id
                 intermediate_tx_path = reports_dir / f"{meeting_id}_transcript.txt"
                 intermediate_tx_path.write_text(diar_result.transcript_with_speakers, encoding="utf-8")
                 logger.info(f"[ApplicationService] 已保存中间转录文本至 {intermediate_tx_path}")
@@ -345,8 +345,8 @@ async def run_offline_pipeline(
         if not is_transcript_input and hasattr(pre_result, 'audio_path') and pre_result.audio_path and pre_result.audio_path.exists():
             try:
                 import shutil
-                reports_dir = find_project_root() / "workspace" / "reports" / meeting_id
-                reports_dir.mkdir(parents=True, exist_ok=True)
+                from utils import get_reports_dir
+                reports_dir = get_reports_dir() / meeting_id
                 audio_dest = reports_dir / "audio.wav"
                 shutil.copy2(str(pre_result.audio_path), str(audio_dest))
                 output_files["audio"] = str(audio_dest)
@@ -367,8 +367,8 @@ async def run_offline_pipeline(
 
         # 额外将转写文本写回为 reports 中的文本文件供下次复用，并在有标题时加上标题
         try:
-            reports_dir = find_project_root() / "reports" / meeting_id
-            reports_dir.mkdir(parents=True, exist_ok=True)
+            from utils import get_reports_dir
+            reports_dir = get_reports_dir() / meeting_id
         
             summary_title = summary.title if summary else ""
             

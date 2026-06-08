@@ -17,6 +17,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from utils.file_system import get_reports_dir
 from interfaces.api.routes.recording import router as recording_router
 from interfaces.api.routes.websocket import router as ws_router
 from interfaces.api.routes.analyze import router as analyze_router
@@ -26,8 +27,7 @@ from interfaces.api.routes.deliver import router as deliver_router
 from interfaces.api.routes.config import router as config_router
 from interfaces.api.routes.reports import router as reports_router
 
-_REPORTS_DIR = Path(__file__).resolve().parents[2] / "workspace" / "reports"
-_REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+_REPORTS_DIR = get_reports_dir()
 
 # 从环境变量读取允许的 CORS 源，逗号分隔；开发环境默认放行本地常用地址
 _CORS_ORIGINS = os.getenv(

@@ -15,3 +15,24 @@ def find_project_root() -> Path:
             return parent
     # 默认退后两层（如果 utils 位于根目录下，那就是上一层）
     return current.parent.parent
+
+
+def get_workspace_dir() -> Path:
+    """获取统一工作区根目录"""
+    d = find_project_root() / "workspace"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def get_reports_dir() -> Path:
+    """获取统一报告产物目录"""
+    d = get_workspace_dir() / "reports"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def get_tmp_dir() -> Path:
+    """获取统一临时工作目录"""
+    d = get_workspace_dir() / "tmp"
+    d.mkdir(parents=True, exist_ok=True)
+    return d

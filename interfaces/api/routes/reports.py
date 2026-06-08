@@ -6,9 +6,11 @@ import json
 import shutil
 from loguru import logger
 
+from utils.file_system import get_reports_dir
+
 router = APIRouter(prefix="/api/v1/reports", tags=["Reports"])
 
-REPORTS_DIR = Path(__file__).resolve().parents[3] / "workspace" / "reports"
+REPORTS_DIR = get_reports_dir()
 
 @router.get("")
 async def list_reports():

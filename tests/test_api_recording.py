@@ -14,7 +14,7 @@ from pathlib import Path
 from unittest.mock import patch
 from fastapi.testclient import TestClient
 
-from api.main import app
+from interfaces.api.main import app
 from services.media_engine import DiarizationResult, DiarizedSegment
 from schemas import (
     MeetingGraphState,
@@ -34,7 +34,8 @@ def test_health_endpoint():
     assert response.json() == {"status": "ok"}
 
 def test_reports_static_endpoint():
-    reports_dir = Path(__file__).resolve().parents[1] / "reports"
+    from utils import get_reports_dir
+    reports_dir = get_reports_dir()
     reports_dir.mkdir(parents=True, exist_ok=True)
     report_path = reports_dir / "test-report.md"
     report_path.write_text("# test report\n", encoding="utf-8")
