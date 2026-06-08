@@ -38,7 +38,11 @@ async def list_reports():
                 try:
                     data = json.loads(final_result_path.read_text(encoding="utf-8"))
                     report_info["title"] = data.get("title", report_info["title"])
-                    report_info["status"] = data.get("status", "COMPLETED")
+                    st = data.get("status", "COMPLETED")
+                    # 如果 final_result.json 存在，说明整个流水线已跑完，无论历史数据中是否为 PENDING 都修正为 COMPLETED
+                    if st == "PENDING":
+                        st = "COMPLETED"
+                    report_info["status"] = st
                     report_info["duration"] = data.get("duration", 0)
                     report_info["num_speakers"] = data.get("num_speakers", 0)
                 except Exception as e:

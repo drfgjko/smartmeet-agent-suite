@@ -58,7 +58,7 @@ async def websocket_meeting(websocket: WebSocket, meeting_id: str):
     active_connections[meeting_id] = websocket
     audio_buffer = bytearray()
 
-    logger.info(f"WebSocket connected: {meeting_id}")
+    logger.info(f"WebSocket 客户端已连接: {meeting_id}")
 
     try:
         await websocket.send_json({
@@ -118,7 +118,7 @@ async def websocket_meeting(websocket: WebSocket, meeting_id: str):
                         await _send_agent_results(websocket, final_state)
 
                     except Exception as pipeline_err:
-                        logger.exception("Error processing audio in WebSocket")
+                        logger.exception("WebSocket 处理音频数据时发生异常")
                         await websocket.send_json({
                             "type": "error",
                             "message": f"处理音频出错: {str(pipeline_err)}",
@@ -159,9 +159,9 @@ async def websocket_meeting(websocket: WebSocket, meeting_id: str):
                     await websocket.send_json({"type": "pong"})
 
     except WebSocketDisconnect:
-        logger.info(f"WebSocket disconnected: {meeting_id}")
+        logger.info(f"WebSocket 客户端已断开: {meeting_id}")
     except Exception as e:
-        logger.exception(f"WebSocket exception for meeting {meeting_id}")
+        logger.exception(f"会议 {meeting_id} 的 WebSocket 连接发生异常")
         try:
             await websocket.send_json({
                 "type": "error",

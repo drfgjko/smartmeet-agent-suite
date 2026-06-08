@@ -42,7 +42,7 @@ def _print_banner() -> None:
         banner_text = Text()
         banner_text.append(ascii_art, style="bold cyan")
         banner_text.append("\n")
-        banner_text.append("  多模态智能会议协同 Agent 解决方案\n\n", style="bold white")
+        banner_text.append("  SmartMeet\n\n", style="bold white")
         banner_text.append("  前端服务: ", style="green")
         banner_text.append("http://localhost:3000\n", style="underline bright_cyan")
         banner_text.append("  后端服务: ", style="green")
@@ -64,8 +64,7 @@ def _print_banner() -> None:
         # rich 库不可用时，使用纯文本降级输出
         print()
         print("=" * 60)
-        print("  SmartMeet Agent Suite")
-        print("  多模态智能会议协同 Agent 解决方案")
+        print("  SmartMeet  ")
         print("=" * 60)
         print("  前端服务: http://localhost:3000")
         print("  后端服务: http://localhost:8000")

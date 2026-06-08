@@ -123,7 +123,7 @@ async def process_recording_endpoint(
         )
         return result
     except Exception as e:
-        logger.exception("Error during process_recording_endpoint")
+        logger.exception("调用 process_recording_endpoint 时发生异常")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/process/async", response_model=TaskCreateResponse)
@@ -223,7 +223,7 @@ async def process_recording_stream(
                     )
                     await progress_callback("done", res)
                 except Exception as ex:
-                    logger.exception("Error in pipeline task")
+                    logger.exception("流水线任务执行中发生异常")
                     await progress_callback("error", {"message": str(ex)})
                 finally:
                     loop.call_soon_threadsafe(queue.put_nowait, None)
@@ -237,7 +237,7 @@ async def process_recording_stream(
                 yield item
 
         except Exception as e:
-            logger.exception("Error in process_recording_stream generator")
+            logger.exception("process_recording_stream 生成器中发生异常")
             yield _sse_event("error", message=str(e))
 
     return StreamingResponse(

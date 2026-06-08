@@ -8,7 +8,9 @@ from loguru import logger
 
 router = APIRouter(prefix="/api/v1/config", tags=["Configuration"])
 
-ENV_PATH = Path(__file__).resolve().parents[2] / ".env"
+from utils.file_system import find_project_root
+
+ENV_PATH = find_project_root() / ".env"
 
 class ConfigPayload(BaseModel):
     # LLM Settings

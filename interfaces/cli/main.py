@@ -13,8 +13,10 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from dotenv import load_dotenv
 
+from utils.file_system import find_project_root
+
 # 加载 .env 配置文件
-load_dotenv(dotenv_path=Path(__file__).resolve().parents[1] / ".env")
+load_dotenv(dotenv_path=find_project_root() / ".env")
 
 # 强制将标准输出/错误重构为 UTF-8 编码，防止 Windows GBK 终端环境或重定向时发生乱码/崩溃
 if sys.platform == "win32":

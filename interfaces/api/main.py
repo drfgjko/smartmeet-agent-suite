@@ -9,8 +9,10 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
+from utils.file_system import find_project_root
+
 # 加载 .env 配置文件
-load_dotenv(dotenv_path=Path(__file__).resolve().parents[1] / ".env")
+load_dotenv(dotenv_path=find_project_root() / ".env")
 
 import uvicorn
 from fastapi import FastAPI
