@@ -23,7 +23,7 @@ from services.document_engine.html_engine import HTMLNoteBuilder
 class ReportRenderer:
     def __init__(self, reports_dir: Path | None = None, llm_client: Any = None):
         if reports_dir is None:
-            self.reports_dir = find_project_root() / "reports"
+            self.reports_dir = find_project_root() / "workspace" / "reports"
         else:
             self.reports_dir = Path(reports_dir)
         self.llm_client = llm_client

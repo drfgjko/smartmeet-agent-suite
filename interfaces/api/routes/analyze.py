@@ -62,7 +62,7 @@ async def analyze_endpoint(request: AnalyzeRequest):
     纯 JSON 分析接口 — 毫秒级返回结构化小卡片。
 
     只运行 LangGraph 分析 Agent，不涉及音视频处理、报告渲染和外部推送。
-    产物自动持久化到 reports/{meeting_id}/checkpoint_analyze.json。
+    产物自动持久化到 workspace/reports/{meeting_id}/checkpoint_analyze.json。
     """
     meeting_id = request.meeting_id or str(uuid.uuid4())[:12]
 

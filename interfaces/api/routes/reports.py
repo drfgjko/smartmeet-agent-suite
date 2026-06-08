@@ -8,7 +8,7 @@ from loguru import logger
 
 router = APIRouter(prefix="/api/v1/reports", tags=["Reports"])
 
-REPORTS_DIR = Path(__file__).resolve().parents[2] / "reports"
+REPORTS_DIR = Path(__file__).resolve().parents[3] / "workspace" / "reports"
 
 @router.get("")
 async def list_reports():

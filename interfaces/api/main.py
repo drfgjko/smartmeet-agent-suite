@@ -26,7 +26,7 @@ from interfaces.api.routes.deliver import router as deliver_router
 from interfaces.api.routes.config import router as config_router
 from interfaces.api.routes.reports import router as reports_router
 
-_REPORTS_DIR = Path(__file__).resolve().parents[1] / "reports"
+_REPORTS_DIR = Path(__file__).resolve().parents[2] / "workspace" / "reports"
 _REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
 # 从环境变量读取允许的 CORS 源，逗号分隔；开发环境默认放行本地常用地址

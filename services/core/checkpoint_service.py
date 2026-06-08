@@ -6,7 +6,7 @@ Checkpoint Service — 文件系统持久化服务
 用于防崩溃恢复和跨接口数据传递（如 /analyze 产物供 /render 读取）。
 
 存储结构:
-    reports/{meeting_id}/
+    workspace/reports/{meeting_id}/
         checkpoint_transcribe.json
         checkpoint_analyze.json
         checkpoint_render.json
@@ -29,13 +29,13 @@ class CheckpointService:
     设计说明:
     - 所有 JSON 文件使用 UTF-8 编码 + ensure_ascii=False（遵守 AGENTS.md 编码死命令）
     - save/load 为异步方法以保持与上层调用链一致，实际 I/O 为同步文件操作
-    - 单个 meeting 的所有产物集中在 reports/{meeting_id}/ 目录下
+    - 单个 meeting 的所有产物集中在 workspace/reports/{meeting_id}/ 目录下
     """
 
     def __init__(self, base_dir: Path | None = None):
         if base_dir is None:
             from utils import find_project_root
-            base_dir = find_project_root() / "reports"
+            base_dir = find_project_root() / "workspace" / "reports"
         self._base_dir = base_dir
 
     def _meeting_dir(self, meeting_id: str) -> Path:

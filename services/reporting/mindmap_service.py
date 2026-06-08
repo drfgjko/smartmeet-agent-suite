@@ -19,7 +19,7 @@ class MindMapService:
     def __init__(self, llm_client: Any = None, reports_dir: Path | None = None):
         self.llm = llm_client
         if reports_dir is None:
-            self.reports_dir = find_project_root() / "reports"
+            self.reports_dir = find_project_root() / "workspace" / "reports"
         else:
             self.reports_dir = Path(reports_dir)
 

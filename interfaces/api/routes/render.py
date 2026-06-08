@@ -65,7 +65,7 @@ async def render_endpoint(request: RenderRequest):
     渲染接口 — 接受 Agent 输出 JSON，生成 Markdown/PDF/HTML/思维导图报告。
 
     可选执行外部分发（飞书/Jira/通用Webhook），受 JobConfig 控制。
-    产物自动持久化到 reports/{meeting_id}/checkpoint_render.json。
+    产物自动持久化到 workspace/reports/{meeting_id}/checkpoint_render.json。
     """
     meeting_id = request.meeting_id
     job_config = request.job_config

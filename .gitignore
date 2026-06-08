@@ -54,12 +54,11 @@ Thumbs.db
 *.log
 tmp_ws_test
 test_output.txt
-/reports/*
-!/reports/.gitkeep
+/workspace/*
+!/workspace/.gitkeep
 commit_msg.txt
 commit_msg_amend.txt
 CODE_REVIEW_MODULE_INDEPENDENCE.md
 ROADMAP.md
 *.db
 *.sqlite3
-/tmp_workspace/*

@@ -47,7 +47,7 @@ async def process_audio_capture(
         - transcript_payload: ASR 转录结果的结构化载荷（用于 API 响应）
     """
     # Step 1: 将音频字节写入临时文件
-    tmp_base = find_project_root() / "tmp_workspace"
+    tmp_base = find_project_root() / "workspace" / "tmp"
     tmp_base.mkdir(parents=True, exist_ok=True)
     work_dir = Path(tempfile.mkdtemp(prefix="smartmeet_ws_", dir=str(tmp_base)))
     try:
