@@ -156,9 +156,28 @@ export default function ExportActions({ result, API_BASE }: ExportActionsProps) 
     return `${API_BASE}/reports/${meeting_id}/${filename}`;
   }
 
+  /** 强制下载思维导图 MD */
+  const handleDownloadMindmapMd = async () => {
+    if (!output_files?.mindmap) return;
+    const url = buildFileUrl(output_files.mindmap);
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      const filename = output_files.mindmap.split(/[/\\]/).pop() || "mindmap.md";
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch (e) {
+      console.error("Failed to download mindmap", e);
+    }
+  };
+
   const hasPdf = !!output_files?.pdf && !!meeting_id;
   const hasHtml = !!output_files?.html && !!meeting_id;
   const hasMindmap = !!output_files?.mindmap && !!meeting_id;
+  const hasMindmapHtml = !!output_files?.mindmap_html && !!meeting_id;
 
   return (
     <div className="brutal-box p-5 bg-white">
@@ -184,7 +203,7 @@ export default function ExportActions({ result, API_BASE }: ExportActionsProps) 
           accent="#ffc900"
           disabled={!content}
         >
-          下载 MD
+          下载报告(MD)
         </BrutalButton>
 
         {/* 下载 PDF */}
@@ -194,27 +213,38 @@ export default function ExportActions({ result, API_BASE }: ExportActionsProps) 
           disabled={!hasPdf}
           accent="#ff90e8"
         >
-          下载 PDF
+          下载报告(PDF)
         </BrutalButton>
 
-        {/* 在线 HTML */}
-        <BrutalButton
-          id="export-html-btn"
-          href={hasHtml ? buildFileUrl(output_files!.html!) : undefined}
-          disabled={!hasHtml}
-          accent="#c084fc"
-        >
-          HTML 报告
-        </BrutalButton>
+        {/* 在线 HTML (仅在 PDF 不存在时作为降级显示) */}
+        {!hasPdf && hasHtml && (
+          <BrutalButton
+            id="export-html-btn"
+            href={buildFileUrl(output_files!.html!)}
+            accent="#c084fc"
+          >
+            HTML 报告 (降级)
+          </BrutalButton>
+        )}
 
-        {/* 思维导图 */}
+        {/* 预览思维导图 (HTML) */}
         <BrutalButton
-          id="export-mindmap-btn"
-          href={hasMindmap ? buildFileUrl(output_files!.mindmap!) : undefined}
-          disabled={!hasMindmap}
+          id="export-mindmap-html-btn"
+          href={hasMindmapHtml ? buildFileUrl(output_files!.mindmap_html!) : (hasMindmap && output_files!.mindmap!.endsWith('.html') ? buildFileUrl(output_files!.mindmap!) : undefined)}
+          disabled={!hasMindmapHtml && !(hasMindmap && output_files!.mindmap!.endsWith('.html'))}
           accent="#4ade80"
         >
-          思维导图
+          预览思维导图
+        </BrutalButton>
+        
+        {/* 下载思维导图源码 (MD) */}
+        <BrutalButton
+          id="export-mindmap-md-btn"
+          onClick={handleDownloadMindmapMd}
+          disabled={!(hasMindmap && output_files!.mindmap!.endsWith('.md'))}
+          accent="#facc15"
+        >
+          思维导图(Mermaid)
         </BrutalButton>
 
         {/* 导出逐字稿 */}
