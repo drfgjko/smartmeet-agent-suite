@@ -270,6 +270,7 @@ async def run_offline_pipeline(
         html_path = None
         pdf_generated = False
         mindmap_path = None
+        mindmap_html_path = None
         mindmap_generated = False
         final_report_md = ""
 
@@ -305,7 +306,7 @@ async def run_offline_pipeline(
                     keyframes=frames_result,
                 )
             title = summary.title if summary else None
-            mindmap_path, mindmap_generated = await mindmap_service.generate_and_save_mindmap(
+            mindmap_path, mindmap_html_path, mindmap_generated = await mindmap_service.generate_and_save_mindmap(
                 meeting_id=meeting_id,
                 final_report_md=final_report_md,
                 title=title,
@@ -366,6 +367,8 @@ async def run_offline_pipeline(
             output_files["html"] = str(html_path)
         if mindmap_generated and mindmap_path:
             output_files["mindmap"] = str(mindmap_path)
+        if mindmap_generated and mindmap_html_path:
+            output_files["mindmap_html"] = str(mindmap_html_path)
 
         # 额外将转写文本写回为 reports 中的文本文件供下次复用，并在有标题时加上标题
         try:

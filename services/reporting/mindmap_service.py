@@ -24,10 +24,10 @@ class MindMapService:
         else:
             self.reports_dir = Path(reports_dir)
 
-    async def generate_and_save_mindmap(self, meeting_id: str, final_report_md: str, title: str | None = None) -> tuple[Path, bool]:
+    async def generate_and_save_mindmap(self, meeting_id: str, final_report_md: str, title: str | None = None) -> tuple[Path, Path, bool]:
         """
         生成 Mermaid 思维导图文件。
-        返回 (mindmap_path, mindmap_generated)
+        返回 (mindmap_path, mindmap_html_path, mindmap_generated)
         """
         target_dir = self.reports_dir / meeting_id
         target_dir.mkdir(parents=True, exist_ok=True)
@@ -40,6 +40,7 @@ class MindMapService:
 
         filename_base = f"{meeting_id}_{safe_title}" if safe_title else meeting_id
         mindmap_path = target_dir / f"{filename_base}_mindmap.md"
+        mindmap_html_path = target_dir / f"{filename_base}_mindmap.html"
         mindmap_generated = False
 
         try:
@@ -52,4 +53,4 @@ class MindMapService:
         except Exception as mm_err:
             logger.error(f"[MindMapService] 思维导图生成失败: {mm_err}")
 
-        return mindmap_path, mindmap_generated
+        return mindmap_path, mindmap_html_path, mindmap_generated
