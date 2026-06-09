@@ -108,8 +108,8 @@ export default function HistoryPage() {
       alert("该任务仍在处理中或已损坏，无法查看。");
       return;
     }
-    // 携带参数跳转至主页加载结果
-    router.push(`/?meeting_id=${meetingId}`);
+    // 携带参数跳转至结果页
+    router.push(`/result?meeting_id=${meetingId}`);
   };
 
   return (
