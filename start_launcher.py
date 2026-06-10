@@ -1,13 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-SmartMeet Agent Suite - Python 启动编排器
-
-职责：
-1. 打印 Rich 横幅（完美控制编码和终端能力检测）
-2. 分别启动前端和后端两个独立的 cmd 窗口
-3. 每个子窗口内正确设置编码环境（chcp 65001 + PYTHONIOENCODING）
-4. 提供友好的错误提示
-"""
 
 from __future__ import annotations
 
@@ -16,12 +6,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-# ── 项目根目录 ──────────────────────────────────────────────────
 PROJECT_ROOT = Path(__file__).resolve().parent
 
-
 def _print_banner() -> None:
-    """使用 Rich 打印启动横幅，终端不支持时自动降级为纯文本。"""
     try:
         from rich.console import Console
         from rich.panel import Panel
@@ -30,7 +17,6 @@ def _print_banner() -> None:
         console = Console()
         console.print()
 
-        # 构建 ASCII Art 标题
         ascii_art = (
             "  ____                       _   __  __           _   \n"
             " / ___|_ __ ___   __ _ _ __| |_|  \\/  | ___  ___| |_ \n"
@@ -45,11 +31,13 @@ def _print_banner() -> None:
         banner_text.append("  SmartMeet\n\n", style="bold white")
         banner_text.append("  前端服务: ", style="green")
         banner_text.append("http://localhost:3000\n", style="underline bright_cyan")
-        banner_text.append("  后端服务: ", style="green")
+        banner_text.append("  后端网关: ", style="green")
         banner_text.append("http://localhost:8000\n", style="underline bright_cyan")
         banner_text.append("  接口文档: ", style="green")
-        banner_text.append("http://localhost:8000/docs\n\n", style="underline bright_cyan")
-        banner_text.append("  即将在两个独立窗口中分别启动前端和后端服务...\n", style="dim")
+        banner_text.append("http://localhost:8000/docs\n", style="underline bright_cyan")
+        banner_text.append("  后台计算: ", style="green")
+        banner_text.append("ARQ Redis Worker\n\n", style="underline bright_yellow")
+        banner_text.append("  即将在三个独立窗口中分别启动 前端、API 和计算节点...\n", style="dim")
 
         console.print(Panel(
             banner_text,
@@ -61,20 +49,19 @@ def _print_banner() -> None:
         console.print()
 
     except ImportError:
-        # rich 库不可用时，使用纯文本降级输出
+
         print()
         print("=" * 60)
         print("  SmartMeet  ")
         print("=" * 60)
         print("  前端服务: http://localhost:3000")
-        print("  后端服务: http://localhost:8000")
+        print("  后端网关: http://localhost:8000")
         print("  接口文档: http://localhost:8000/docs")
+        print("  后台计算: ARQ Redis Worker")
         print("=" * 60)
         print()
 
-
 def _check_prerequisites() -> bool:
-    """检查启动前置条件，返回 False 表示不满足。"""
     web_dir = PROJECT_ROOT / "interfaces" / "web"
     if not web_dir.exists():
         print(f"[错误] 前端目录不存在: {web_dir}")
@@ -92,18 +79,15 @@ def _check_prerequisites() -> bool:
 
     return True
 
-
 import platform
 
 IS_WINDOWS = sys.platform == "win32"
 
 def _build_window_cmd(title: str, work_dir: Path, command: str) -> str:
-    """构建在新 cmd 窗口中执行的命令字符串（仅限 Windows）。"""
     inner_cmd = f'chcp 65001 >nul & set PYTHONIOENCODING=utf-8 & cd /d "{work_dir}" & {command}'
     return f'start "{title}" cmd /k "{inner_cmd}"'
 
 def _launch_frontend() -> subprocess.Popen | None:
-    """启动前端 Next.js 开发服务器。"""
     print("[1/2] 正在启动前端服务 (Next.js)...")
     web_dir = PROJECT_ROOT / "interfaces" / "web"
     if IS_WINDOWS:
@@ -111,23 +95,31 @@ def _launch_frontend() -> subprocess.Popen | None:
         subprocess.run(cmd, shell=True, cwd=str(PROJECT_ROOT))
         return None
     else:
-        # Unix 系统：作为子进程启动，日志混合输出或稍后处理
+
         return subprocess.Popen(["npm", "run", "dev"], cwd=str(web_dir))
 
 def _launch_backend() -> subprocess.Popen | None:
-    """启动后端 FastAPI 服务。"""
-    print("[2/2] 正在启动后端服务 (FastAPI)...")
+    print("[2/3] 正在启动后端网关 (FastAPI)...")
     backend_command = "conda run --no-capture-output -n smartmeet python -m interfaces.api.main"
     if IS_WINDOWS:
         cmd = _build_window_cmd("SmartMeet Backend - FastAPI", PROJECT_ROOT, backend_command)
         subprocess.run(cmd, shell=True, cwd=str(PROJECT_ROOT))
         return None
     else:
-        # Unix 系统：以 shell 方式运行
+
         return subprocess.Popen(backend_command, shell=True, cwd=str(PROJECT_ROOT))
 
+def _launch_worker() -> subprocess.Popen | None:
+    print("[3/3] 正在启动后台计算节点 (ARQ Worker)...")
+    worker_command = "conda run --no-capture-output -n smartmeet arq workers.arq_worker.WorkerSettings"
+    if IS_WINDOWS:
+        cmd = _build_window_cmd("SmartMeet Worker - ARQ Redis", PROJECT_ROOT, worker_command)
+        subprocess.run(cmd, shell=True, cwd=str(PROJECT_ROOT))
+        return None
+    else:
+        return subprocess.Popen(worker_command, shell=True, cwd=str(PROJECT_ROOT))
+
 def main() -> None:
-    """主入口：打印横幅 -> 检查前置条件 -> 启动服务。"""
     os.environ["PYTHONIOENCODING"] = "utf-8"
 
     _print_banner()
@@ -138,14 +130,20 @@ def main() -> None:
         input("按回车键退出...")
         sys.exit(1)
 
+    import time
+
     fe_proc = _launch_frontend()
+    time.sleep(1.5)  
     be_proc = _launch_backend()
+    time.sleep(1.5)
+    worker_proc = _launch_worker()
 
     print()
     if IS_WINDOWS:
         print("所有服务已在独立窗口中启动！")
-        print("  - 前端窗口: SmartMeet Frontend - Next.js")
-        print("  - 后端窗口: SmartMeet Backend - FastAPI")
+        print("  - 窗口 1: SmartMeet Frontend - Next.js")
+        print("  - 窗口 2: SmartMeet Backend - FastAPI")
+        print("  - 窗口 3: SmartMeet Worker - ARQ Redis")
         print()
         print("本窗口将在 3 秒后自动关闭...")
         import time
@@ -154,7 +152,7 @@ def main() -> None:
         print("所有服务已启动！按 Ctrl+C 可停止所有服务。")
         print("-" * 60)
         try:
-            # 阻塞等待后端进程结束
+
             if be_proc:
                 be_proc.wait()
             elif fe_proc:
@@ -165,6 +163,8 @@ def main() -> None:
                 fe_proc.terminate()
             if be_proc:
                 be_proc.terminate()
+            if worker_proc:
+                worker_proc.terminate()
             print("清理完毕，再见！")
 
 if __name__ == "__main__":
