@@ -1,7 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-SmartMeet Agent Suite - FastAPI 服务入口
-"""
 
 from __future__ import annotations
 
@@ -11,7 +7,6 @@ from dotenv import load_dotenv
 
 from utils.file_system import find_project_root
 
-# 加载 .env 配置文件
 load_dotenv(dotenv_path=find_project_root() / ".env")
 
 import uvicorn
@@ -31,11 +26,21 @@ from interfaces.api.routes.reports import router as reports_router
 
 _REPORTS_DIR = get_reports_dir()
 
-# 从环境变量读取允许的 CORS 源，逗号分隔；开发环境默认放行本地常用地址
 _CORS_ORIGINS = os.getenv(
     "CORS_ORIGINS",
     "http://localhost:3000,http://127.0.0.1:3000,http://localhost:8000",
 ).split(",")
+
+from contextlib import asynccontextmanager
+from arq import create_pool
+from arq.connections import RedisSettings
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    redis_settings = RedisSettings.from_dsn(os.getenv("REDIS_URL", "redis://localhost:6379/0"))
+    app.state.redis = await create_pool(redis_settings)
+    yield
+    await app.state.redis.close()
 
 app = FastAPI(
     title="SmartMeet Agent Suite API",
@@ -43,9 +48,9 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
-# 配置 CORS 跨域中间件
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_CORS_ORIGINS,
@@ -54,7 +59,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 注册 API 路由
 app.include_router(recording_router)
 app.include_router(ws_router)
 app.include_router(analyze_router)
@@ -80,7 +84,7 @@ async def health():
 
 def start():
     reload_enabled = os.getenv("UVICORN_RELOAD", "false").lower() == "true"
-    
+
     from rich.console import Console
     from rich.panel import Panel
     console = Console()

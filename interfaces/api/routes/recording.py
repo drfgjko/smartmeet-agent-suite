@@ -1,10 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-录制处理路由
-- 处理本地音频文件上传
-- 处理离线任务流水线（支持本地文件路径与在线 URL 抓取解析）
-- 支持基于 Server-Sent Events（SSE）的进度推送
-"""
 
 from __future__ import annotations
 
@@ -15,25 +8,22 @@ import uuid
 from pathlib import Path
 from typing import Generator, Any
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile, BackgroundTasks
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile, BackgroundTasks, Request
 from fastapi.responses import StreamingResponse
 from loguru import logger
 
 from services.pipeline import run_offline_pipeline
 from schemas import JobConfig
 from schemas.task_schema import TaskCreateResponse
-from services.core.task_queue import task_queue
 
 router = APIRouter(prefix="/api/v1/recording", tags=["recording"])
 
 _UPLOAD_DIR = Path(tempfile.gettempdir()) / "smartmeet_uploads"
 _UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
-# 允许通过 file_path 直接访问的基目录（resolve 后必须以此开头）
 _ALLOWED_BASE_DIRS = (
     _UPLOAD_DIR.resolve(),
 )
-
 
 def _validate_path_safety(path: Path) -> Path:
     resolved = path.resolve()
@@ -73,7 +63,6 @@ def _resolve_input(
 
 @router.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
-    """上传本地音视频文件，缓存于临时目录"""
     file_id = str(uuid.uuid4())
     ext = Path(file.filename or "upload").suffix
     save_path = _UPLOAD_DIR / f"{file_id}{ext}"
@@ -100,10 +89,8 @@ async def process_recording_endpoint(
     extract_frames: bool = Form(True),
     job_config: str = Form(None, description="JobConfig JSON 字符串，控制流程开关"),
 ):
-    """一键离线处理接口 (非流式)，支持 JobConfig 参数级流程控制"""
     meeting_id, actual_path = _resolve_input(file_id, file_path, url)
 
-    # 解析 JobConfig（不传或解析失败时使用全开默认值）
     parsed_config = JobConfig()
     if job_config:
         try:
@@ -128,7 +115,7 @@ async def process_recording_endpoint(
 
 @router.post("/process/async", response_model=TaskCreateResponse)
 async def process_recording_async(
-    background_tasks: BackgroundTasks,
+    request: Request,
     file_path: str = Form(None),
     file_id: str = Form(None),
     url: str = Form(None),
@@ -138,10 +125,8 @@ async def process_recording_async(
     extract_frames: bool = Form(True),
     job_config: str = Form(None, description="JobConfig JSON 字符串，控制流程开关"),
 ):
-    """一键离线处理接口 (纯异步流)，提交任务后立即返回 Task ID，由后台执行"""
     meeting_id, actual_path = _resolve_input(file_id, file_path, url)
 
-    # 解析 JobConfig
     parsed_config = JobConfig()
     if job_config:
         try:
@@ -150,33 +135,28 @@ async def process_recording_async(
             logger.warning(f"job_config 解析失败，使用默认值: {e}")
 
     task_id = str(uuid.uuid4())
-    
-    # 1. 在数据库中创建 Pending 任务记录
-    task_queue.task_service.create_task(task_id, meeting_id=meeting_id)
-    
-    # 2. 包装真正的耗时协程
-    coro = run_offline_pipeline(
-        input_path=actual_path,
+
+    redis_pool = getattr(request.app.state, "redis", None)
+    if not redis_pool:
+        raise HTTPException(status_code=500, detail="Redis pool not initialized")
+
+    await redis_pool.enqueue_job(
+        "background_offline_pipeline",
+        input_path=str(actual_path) if actual_path else None,
         url=url,
         meeting_id=meeting_id,
         num_speakers=num_speakers,
         denoise_level=denoise_level,
         extract_frames=extract_frames,
-        job_config=parsed_config,
+        job_config_dict=parsed_config.model_dump(),
+        _job_id=task_id,
     )
-    
-    # 3. 投递到后台执行
-    background_tasks.add_task(
-        task_queue.execute_task,
-        task_id=task_id,
-        coro=coro,
-        webhook_urls=parsed_config.webhook_urls
-    )
-    
+
     return TaskCreateResponse(
         task_id=task_id,
-        status="pending",
-        message="Task submitted successfully. Please poll /api/v1/tasks/{task_id} for status."
+        status="queued",
+        message="Task submitted to ARQ successfully. Please poll /api/v1/tasks/{task_id} for status.",
+        meeting_id=meeting_id
     )
 
 @router.post("/process/stream")
@@ -190,10 +170,8 @@ async def process_recording_stream(
     extract_frames: bool = Form(True),
     job_config: str = Form(None, description="JobConfig JSON 字符串，控制流程开关"),
 ):
-    """基于 Server-Sent Events (SSE) 的音视频流式处理接口，支持 JobConfig 参数级流程控制"""
     meeting_id, actual_path = _resolve_input(file_id, file_path, url)
 
-    # 解析 JobConfig
     parsed_config = JobConfig()
     if job_config:
         try:

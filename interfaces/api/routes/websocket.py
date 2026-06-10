@@ -1,9 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-WebSocket Routes
-- 提供 /ws/meeting/{meeting_id} 实时录音与结果流式推送接口
-- 接收音频二进制帧并在收到控制命令后执行完整的多 Agent 缝合流程
-"""
 
 from __future__ import annotations
 
@@ -18,9 +12,35 @@ from workflows.meeting_workflow import run_meeting_pipeline
 
 router = APIRouter(tags=["websocket"])
 
-# 活跃的连接池
 active_connections: dict[str, WebSocket] = {}
 
+@router.websocket("/ws/tasks/{meeting_id}/progress")
+async def websocket_task_progress(websocket: WebSocket, meeting_id: str):
+    await websocket.accept()
+
+    import redis.asyncio as redis
+    import os
+    redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    redis_client = redis.from_url(redis_url)
+    pubsub = redis_client.pubsub()
+    channel = f"channel:progress:{meeting_id}"
+    await pubsub.subscribe(channel)
+
+    try:
+        async for message in pubsub.listen():
+            if message["type"] == "message":
+                data = message["data"].decode("utf-8")
+                await websocket.send_text(data)
+
+                if '"stage": "done"' in data or '"stage": "error"' in data:
+                    break
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        logger.exception(f"Redis pubsub error for {meeting_id}")
+    finally:
+        await pubsub.unsubscribe(channel)
+        await redis_client.aclose()
 
 async def _send_agent_results(websocket: WebSocket, final_state) -> None:
     async def sender(event_type: str, payload: dict) -> None:
@@ -28,9 +48,7 @@ async def _send_agent_results(websocket: WebSocket, final_state) -> None:
 
     await emit_agent_events(final_state, sender)
 
-
 def _generate_demo_transcript() -> DiarizationResult:
-    """生成演示说话人分割结果"""
     segments = [
         DiarizedSegment(start=0.0, end=8.5, text="好的，我们开始今天的Q3预算评审会议。首先请李明汇报一下目前的预算执行情况。", speaker="张总"),
         DiarizedSegment(start=9.0, end=16.2, text="好的张总。截至目前，Q2预算执行率为87%，其中研发投入占比最大，达到42%。", speaker="李明"),
@@ -48,12 +66,8 @@ def _generate_demo_transcript() -> DiarizationResult:
         language="zh"
     )
 
-
 @router.websocket("/ws/meeting/{meeting_id}")
 async def websocket_meeting(websocket: WebSocket, meeting_id: str):
-    """
-    实时音频输入流和多 Agent 处理推送 WebSocket 接口
-    """
     await websocket.accept()
     active_connections[meeting_id] = websocket
     audio_buffer = bytearray()
@@ -71,7 +85,7 @@ async def websocket_meeting(websocket: WebSocket, meeting_id: str):
             data = await websocket.receive()
 
             if "bytes" in data and data["bytes"]:
-                # 收到音频二进制片段
+
                 audio_buffer.extend(data["bytes"])
                 await websocket.send_json({
                     "type": "recording",
@@ -79,7 +93,7 @@ async def websocket_meeting(websocket: WebSocket, meeting_id: str):
                 })
 
             elif "text" in data and data["text"]:
-                # 收到 JSON 控制报文
+
                 message = json.loads(data["text"])
                 msg_type = message.get("type", "")
 
@@ -128,7 +142,7 @@ async def websocket_meeting(websocket: WebSocket, meeting_id: str):
                         audio_buffer.clear()
 
                 elif msg_type == "demo":
-                    # 运行演示/测试模式
+
                     await websocket.send_json({
                         "type": "processing",
                         "message": "正在运行演示模式...",
@@ -136,7 +150,6 @@ async def websocket_meeting(websocket: WebSocket, meeting_id: str):
 
                     diar_result = _generate_demo_transcript()
 
-                    # 发送 Mock 转写和说话人结果
                     await websocket.send_json({
                         "type": "diarization",
                         "data": {
@@ -147,7 +160,6 @@ async def websocket_meeting(websocket: WebSocket, meeting_id: str):
                         }
                     })
 
-                    # 调用 LangGraph 多 Agent 状态机
                     final_state = await run_meeting_pipeline(
                         meeting_id=meeting_id,
                         transcript_text=diar_result.transcript_with_speakers,
