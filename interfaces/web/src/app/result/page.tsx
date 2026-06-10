@@ -94,7 +94,7 @@ function ResultContent() {
     }
 
     setIsLoading(true);
-    if (IS_DEMO_MODE && meetingId === "mock-37fe9e7b") {
+    if (meetingId === "mock-37fe9e7b") {
       setResult(MOCK_RESULT as any);
       setIsLoading(false);
       return;

@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback } from 'react';
 import { Result, InputMode, JobConfigType } from '../types';
 import JobConfigPanel from './JobConfigPanel';
 import FileInput from './FileInput';
-import ExecutionTimeline from './ExecutionTimeline';
+import { useTasks } from './TaskProvider';
 
 type UploadPanelProps = {
   API_BASE: string;
@@ -10,17 +10,16 @@ type UploadPanelProps = {
 };
 
 export default function UploadPanel({ API_BASE, onSuccess }: UploadPanelProps) {
+  const { addTask } = useTasks();
   const [inputMode, setInputMode] = useState<InputMode>("url");
   const [url, setUrl] = useState("");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
 
-  // 高级选项状态
   const [numSpeakers, setNumSpeakers] = useState<number | undefined>();
   const [denoiseLevel, setDenoiseLevel] = useState(1);
 
   const defaultChannel = { enabled: false, push_card: false, push_pdf: false, push_mindmap: false };
 
-  // JobConfig (插件与节点控制)
   const [jobConfig, setJobConfig] = useState<JobConfigType>({
     enable_summary: true,
     enable_actions: true,
@@ -37,17 +36,9 @@ export default function UploadPanel({ API_BASE, onSuccess }: UploadPanelProps) {
     setJobConfig(prev => ({ ...prev, [key]: value }));
   };
 
-  // 处理状态
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [events, setEvents] = useState<{timestamp: number, message: string}[]>([]);
-  const abortRef = useRef<AbortController | null>(null);
 
-  const addEvent = (message: string) => {
-    setEvents(prev => [...prev, { timestamp: Date.now(), message }]);
-  };
-
-  // ── URL 模式：SSE 流式处理 ──
   const handleUrlSubmit = useCallback(async () => {
     if (!url.trim() || loading) return;
     if (process.env.NEXT_PUBLIC_DEMO_MODE === "true") {
@@ -56,9 +47,6 @@ export default function UploadPanel({ API_BASE, onSuccess }: UploadPanelProps) {
     }
     setLoading(true);
     setError("");
-    setEvents([]);
-    addEvent("INITIALIZING CONNECTION...");
-    abortRef.current = new AbortController();
     try {
       const form = new FormData();
       form.append("url", url.trim());
@@ -66,65 +54,26 @@ export default function UploadPanel({ API_BASE, onSuccess }: UploadPanelProps) {
       form.append("denoise_level", String(denoiseLevel));
       form.append("job_config", JSON.stringify(jobConfig));
 
-      const resp = await fetch(`${API_BASE}/api/v1/recording/process/stream`, {
+      const resp = await fetch(`${API_BASE}/api/v1/recording/process/async`, {
         method: "POST",
         body: form,
-        signal: abortRef.current.signal,
       });
       if (!resp.ok) {
         const e = await resp.json().catch(() => ({}));
         throw new Error(e.detail || `HTTP ${resp.status}`);
       }
-      const reader = resp.body?.getReader();
-      if (!reader) throw new Error("No response body");
-      const decoder = new TextDecoder();
-      let buffer = "";
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-          try {
-            const ev = JSON.parse(line.slice(6).trim());
-            if (ev.stage === "done") {
-              addEvent("PIPELINE COMPLETED SUCCESSFULLY.");
-              const r: Result = {
-                meeting_id: ev.meeting_id,
-                title: ev.title || "会议报告",
-                content: ev.content || "",
-                source: "url",
-                duration: ev.duration || 0,
-                num_speakers: ev.num_speakers,
-                speakers: ev.speakers,
-                output_files: ev.output_files,
-                summary: ev.summary,
-                actions: ev.actions,
-                insights: ev.insights,
-                diarized_transcript: ev.diarized_transcript
-              };
-              onSuccess(r, url.trim());
-            } else if (ev.stage === "error") {
-              throw new Error(ev.message);
-            } else {
-              addEvent(ev.message || "PROCESSING...");
-            }
-          } catch (pe: any) {
-            if (pe.message && !pe.message.includes("JSON")) throw pe;
-          }
-        }
-      }
+
+      const data = await resp.json();
+      addTask(data.task_id, data.meeting_id, url.trim());
+      setUrl("");
+
     } catch (e: any) {
-      if (e.name !== "AbortError") setError(e.message || "PROCESS FAILED");
+      setError(e.message || "PROCESS FAILED");
     } finally {
       setLoading(false);
-      abortRef.current = null;
     }
   }, [url, numSpeakers, denoiseLevel, jobConfig, loading, API_BASE, onSuccess]);
 
-  // ── 文件模式：上传 → 处理 ──
   const handleFileSubmit = useCallback(async () => {
     if (!uploadFile || loading) return;
     if (process.env.NEXT_PUBLIC_DEMO_MODE === "true") {
@@ -133,8 +82,6 @@ export default function UploadPanel({ API_BASE, onSuccess }: UploadPanelProps) {
     }
     setLoading(true);
     setError("");
-    setEvents([]);
-    addEvent("UPLOADING FILE...");
     try {
       const formData = new FormData();
       formData.append("file", uploadFile);
@@ -145,7 +92,6 @@ export default function UploadPanel({ API_BASE, onSuccess }: UploadPanelProps) {
       if (!uploadResp.ok) throw new Error("UPLOAD FAILED");
       const { file_id } = await uploadResp.json();
 
-      addEvent("FILE UPLOADED. STARTING AGENT PIPELINE...");
       const processForm = new FormData();
       processForm.append("file_id", file_id);
       if (numSpeakers)
@@ -153,7 +99,7 @@ export default function UploadPanel({ API_BASE, onSuccess }: UploadPanelProps) {
       processForm.append("denoise_level", String(denoiseLevel));
       processForm.append("job_config", JSON.stringify(jobConfig));
 
-      const resp = await fetch(`${API_BASE}/api/v1/recording/process`, {
+      const resp = await fetch(`${API_BASE}/api/v1/recording/process/async`, {
         method: "POST",
         body: processForm,
       });
@@ -161,23 +107,11 @@ export default function UploadPanel({ API_BASE, onSuccess }: UploadPanelProps) {
         const e = await resp.json().catch(() => ({}));
         throw new Error(e.detail || "PROCESS FAILED");
       }
-      addEvent("PIPELINE COMPLETED SUCCESSFULLY.");
+
       const data = await resp.json();
-      const r: Result = {
-        meeting_id: data.meeting_id,
-        title: data.title || uploadFile.name,
-        content: data.content || "",
-        source: "file",
-        duration: data.duration || 0,
-        num_speakers: data.num_speakers,
-        speakers: data.speakers,
-        output_files: data.output_files,
-        summary: data.summary,
-        actions: data.actions,
-        insights: data.insights,
-        diarized_transcript: data.diarized_transcript
-      };
-      onSuccess(r, uploadFile.name);
+      addTask(data.task_id, data.meeting_id, uploadFile.name);
+      setUploadFile(null);
+
     } catch (e: any) {
       setError(e.message || "PROCESS FAILED");
     } finally {
@@ -186,12 +120,6 @@ export default function UploadPanel({ API_BASE, onSuccess }: UploadPanelProps) {
   }, [uploadFile, numSpeakers, denoiseLevel, jobConfig, loading, API_BASE, onSuccess]);
 
   const handleSubmit = inputMode === "url" ? handleUrlSubmit : handleFileSubmit;
-
-  const handleCancel = () => {
-    abortRef.current?.abort();
-    setLoading(false);
-    addEvent("PROCESS ABORTED BY USER.");
-  };
 
   const canSubmit = !loading && (inputMode === "url" ? url.trim() !== "" : uploadFile !== null);
 
@@ -240,7 +168,6 @@ export default function UploadPanel({ API_BASE, onSuccess }: UploadPanelProps) {
         )}
       </div>
 
-      {/* 高级选项 */}
       <JobConfigPanel 
         numSpeakers={numSpeakers}
         setNumSpeakers={setNumSpeakers}
@@ -250,23 +177,14 @@ export default function UploadPanel({ API_BASE, onSuccess }: UploadPanelProps) {
         handleConfigChange={handleConfigChange}
       />
 
-      {/* 提交按钮 */}
       <div className="mt-8 flex gap-4">
         <button
           onClick={handleSubmit}
           disabled={!canSubmit}
           className="brutal-btn brutal-btn-primary flex-1 text-xl py-5 font-black"
         >
-          {loading ? "执行中..." : "启动智能分析"}
+          {loading ? "提交中..." : "启动智能分析"}
         </button>
-        {loading && (
-          <button
-            onClick={handleCancel}
-            className="brutal-btn bg-white text-black hover:bg-red-500 hover:text-white"
-          >
-            中止
-          </button>
-        )}
       </div>
 
       {error && (
@@ -275,12 +193,6 @@ export default function UploadPanel({ API_BASE, onSuccess }: UploadPanelProps) {
         </div>
       )}
 
-      {/* 执行时间轴（仅在处理中或有日志时显示） */}
-      {events.length > 0 && (
-        <div className="mt-12">
-          <ExecutionTimeline events={events} isLoading={loading} />
-        </div>
-      )}
     </div>
   );
 }
