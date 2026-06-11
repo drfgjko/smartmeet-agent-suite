@@ -28,7 +28,7 @@
    - **Insight 节点**：分析情绪分布与发言效率。
 
 3. **异步编排与持久化机制**
-   - **状态机与任务队列**：内置基于 SQLite 的轻量级异步任务队列，支持后台执行长耗时计算任务与状态轮询。
+   - **状态机与任务队列**：引入 Arq 与 Redis 构建核心异步任务队列驱动，提供独立的 Worker 进程解耦并承载长耗时音视频处理任务，前端提供全局任务状态中心进行轮询监控。
    - **持久化 Checkpoint**：通过 `CheckpointService` 在提取、分析、渲染阶段自动保存 JSON 存档，支持断点续传与防崩溃兜底。
 
 4. **排版与分发机制**
@@ -50,7 +50,9 @@
    - 核心用途：当 LaTeX 编译失败触发 HTML 降级模式时，支撑 `WeasyPrint` 进行渲染。若未安装 GTK3，系统会最终兜底调用系统自带 Chrome/Edge 的无头模式（Headless）进行排版打印。
 4. **CUDA 工具链 (可选)**
    - 核心用途：硬件加速 Whisper 及 pyannote 推理。
-5. **Miniconda (推荐)**
+5. **Redis 6.0+ (必需)**
+   - 核心用途：提供 Arq 异步任务队列的存储底座，支撑长耗时后台任务。
+6. **Miniconda (推荐)**
    - 核心用途：用于底层科学计算库和环境依赖隔离。
 
 ## 快速部署
@@ -74,9 +76,9 @@ cp .env.example .env
 
 ## 启动服务
 
-**方法一：Web 工作台（双窗口自动启动）**
+**方法一：Web 工作台（多进程协同启动）**
 - Windows: 双击 `start.bat`
-- macOS / Linux: 运行 `bash start.sh`
+- macOS / Linux: 运行 `conda run -n smartmeet python start_launcher.py`
 启动后访问 http://localhost:3000
 
 **方法二：CLI 命令行执行**

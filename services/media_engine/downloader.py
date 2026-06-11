@@ -68,7 +68,8 @@ def _base_cmd(url: str = "") -> list[str]:
             # 不要使用 unquote() 解码！B 站的 Cookie 包含逗号等特殊字符，
             # 如果解码后放入 Cookie 文件，会导致 yt-dlp 发送非法的 HTTP Cookie 请求头（包含明文逗号），
             # 这会触发 B 站 WAF 防火墙的拦截，直接导致 TCP 连接超时 (TimeoutError)！
-            tmp = Path(tempfile.mktemp(suffix="_bili_cookies.txt"))
+            from utils.file_system import get_tmp_dir
+            tmp = Path(tempfile.mktemp(suffix="_bili_cookies.txt", dir=str(get_tmp_dir())))
             tmp.write_text(
                 f"# Netscape HTTP Cookie File\n"
                 f".bilibili.com\tTRUE\t/\tTRUE\t2147483647\tSESSDATA\t{sessdata}\n",

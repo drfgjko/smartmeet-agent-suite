@@ -276,7 +276,8 @@ def preprocess(
     progress_callback: Callable[[str, float], None] | None = None,
 ) -> PreprocessResult:
     if work_dir is None:
-        work_dir = Path(tempfile.mkdtemp(prefix="noteking_pre_"))
+        from utils.file_system import get_tmp_dir
+        work_dir = Path(tempfile.mkdtemp(prefix="noteking_pre_", dir=str(get_tmp_dir())))
     work_dir.mkdir(parents=True, exist_ok=True)
 
     def _progress(step: str, pct: float):

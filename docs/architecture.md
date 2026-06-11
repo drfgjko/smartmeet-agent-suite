@@ -144,7 +144,7 @@ graph TB
 | 模块 | 职责 |
 |------|------|
 | [services/pipeline/](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/pipeline/) | 应用编排层：分 `offline_processor.py` (离线处理) 和 `online_processor.py` (流式处理)，统一调度媒体引擎与工作流 |
-| [services/core/task_queue.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/core/task_queue.py) , [task_service.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/core/task_service.py) , [task_model.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/core/task_model.py) | 异步任务处理队列、数据模型与状态持久化管理，支持基于后台 Task 的可靠投递 |
+| [services/core/task_queue.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/core/task_queue.py) , [task_service.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/core/task_service.py) , [task_model.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/core/task_model.py) | 异步任务处理队列、数据模型与状态持久化管理，底层基于 Arq 与 Redis，支持独立 Worker 后台可靠投递 |
 | [services/core/checkpoint_service.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/core/checkpoint_service.py) | 分析及渲染产物进度存储，用于解耦各个 Pipeline 阶段的数据持久化 |
 | [services/integrations/llm_client.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/integrations/llm_client.py) | 统一 LLM 客户端（OpenAI 兼容），支持异步/同步/流式调用 |
 | [services/integrations/jira_client.py](file:///d:/Workspace/agent-project/smartmeet-agent-suite/services/integrations/jira_client.py) | Jira Cloud REST API 集成 |
@@ -383,6 +383,8 @@ smartmeet-agent-suite/
 │   │   └── action_sync.py      # 行动项同步
 │   ├── reporting/              # 报告组装 (Composer)、Markdown格式化、渲染 (Renderer)
 │   └── delivery/               # 多渠道分发 (Delivery) 与 Webhook 服务
+├── workers/                    # 异步任务 Worker 进程
+│   └── arq_worker.py           # Arq 任务消费节点
 ├── assets/                     # CSS/LaTeX 模板文件
 ├── tests/                      # 测试套件
 ├── docs/                       # 文档

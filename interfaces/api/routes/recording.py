@@ -15,10 +15,11 @@ from loguru import logger
 from services.pipeline import run_offline_pipeline
 from schemas import JobConfig
 from schemas.task_schema import TaskCreateResponse
+from utils.file_system import get_tmp_dir
 
 router = APIRouter(prefix="/api/v1/recording", tags=["recording"])
 
-_UPLOAD_DIR = Path(tempfile.gettempdir()) / "smartmeet_uploads"
+_UPLOAD_DIR = get_tmp_dir() / "smartmeet_uploads"
 _UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 _ALLOWED_BASE_DIRS = (
