@@ -51,10 +51,15 @@ async def background_offline_pipeline(
             progress_callback=progress_callback,
             job_config=parsed_config,
         )
+        await progress_callback("done", result)
         logger.info(f"Worker successfully finished offline pipeline for meeting: {meeting_id}")
         return result
     except Exception as e:
         logger.exception(f"Worker failed on offline pipeline for meeting: {meeting_id}")
+        try:
+            await progress_callback("error", {"message": str(e)})
+        except Exception:
+            pass
         raise e
 
 class WorkerSettings:
