@@ -2,17 +2,6 @@
 
 本项目是一条基于大模型和强数据契约的确定性自动化流水线。支持音视频输入，自动提取核心议题、精准待办、情绪洞察，并生成带关键帧的 LaTeX PDF 报告与思维导图，最终支持分钟级推送到飞书群聊。
 
->  **交互演示（静态脱机版本，非完整全栈）：[https://smartmeet-five.vercel.app/](https://smartmeet-five.vercel.app/)**
-
-## 项目背景
-
-传统的长视频或长会议整理通常面临以下痛点：
-1. **语音转文字缺乏结构**：纯文本转换结果通常为缺乏排版和重点的流水账。
-2. **常规大模型总结单薄**：常规的单次摘要生成容易丢失决策细节及具体的任务分配（行动项）。
-3. **产出物缺乏专业排版**：纯 Markdown 文本在部分企业级场景下显得不够正式。
-
-本项目通过深度整合大模型并行协作架构和底层音视频流解析，实现自动化直出企业级报告。
-
 ## 架构与工作流
 
 本项目采用本地单体架构，通过轻量级异步任务队列实现模块解耦，核心工作流如下：
@@ -91,7 +80,7 @@ conda run -n smartmeet python -m cli run "https://www.bilibili.com/video/BVxxxxx
 ```
 更多 CLI 接口及集成说明详见 [docs/deployment-guide.md](docs/deployment-guide.md)。
 
-## 开源鸣谢
+## 鸣谢
 
 本项目初期参考了 [multi-agent-meeting-assistant](https://github.com/bcefghj/multi-agent-meeting-assistant) 项目。该项目包装为“Multi-Agent”，但代码本质是将固定 LLM 调用串联的自动化流水线（Pipeline），并不具备多智能体的自主规划能力。警惕过度包装。
 
