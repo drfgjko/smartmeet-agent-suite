@@ -6,7 +6,7 @@ import pytest
 import asyncio
 from unittest.mock import AsyncMock
 
-from agents.summary_agent import SummaryAgent
+from intelligence.nodes.summary_agent import SummaryAgent
 
 @pytest.mark.asyncio
 async def test_summary_map_reduce():

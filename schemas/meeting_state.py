@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from services.media_engine import DiarizationResult, ExtractedFrame
+from engines.media import DiarizationResult, ExtractedFrame
 from .job_config import JobConfig
 from .meeting_schemas import ActionOutput, FollowUpOutput, InsightOutput, SummaryOutput
 

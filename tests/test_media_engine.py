@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
-from services.media_engine import (
+from engines.media import (
     ExtractedFrame,
     Platform,
     LinkType,
@@ -21,7 +21,7 @@ from services.media_engine import (
     parse_link,
     parse_srt,
 )
-from services.media_engine.diarizer import _merge_adjacent_speakers
+from engines.media.diarizer import _merge_adjacent_speakers
 
 
 class TestParser:
@@ -247,8 +247,8 @@ class TestDiarizer:
         ]
         result = DiarizationResult(segments=segs)
         output = result.transcript_with_speakers
-        assert "**Speaker 1**" in output
-        assert "**Speaker 2**" in output
+        assert "Speaker 1 [00:00:00]" in output
+        assert "Speaker 2" in output
         assert output.index("Speaker 1") < output.index("Speaker 2")
 
     def test_diarization_result_empty_full_text(self):

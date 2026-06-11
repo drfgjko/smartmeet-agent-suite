@@ -12,7 +12,7 @@ from loguru import logger
 from typing import Any
 
 from utils import find_project_root
-from services.document_engine.mindmap_engine import MindMapPipeline
+from engines.document.mindmap_engine import MindMapPipeline
 
 
 class MindMapService:

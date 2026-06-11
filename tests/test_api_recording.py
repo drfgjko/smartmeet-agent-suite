@@ -15,7 +15,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from interfaces.api.main import app
-from services.media_engine import DiarizationResult, DiarizedSegment
+from engines.media import DiarizationResult, DiarizedSegment
 from schemas import (
     MeetingGraphState,
     SummaryOutput,
@@ -60,7 +60,7 @@ def test_upload_endpoint():
     assert data["filename"] == "test.wav"
     assert data["size"] == len(file_content)
 
-@patch("api.routes.recording.run_offline_pipeline")
+@patch("interfaces.api.routes.recording.run_offline_pipeline")
 def test_process_endpoint(mock_run_offline_pipeline):
     mock_run_offline_pipeline.return_value = {
         "meeting_id": "test-mtg-123",
@@ -71,7 +71,7 @@ def test_process_endpoint(mock_run_offline_pipeline):
         "followup": {"artifacts": {"markdown_path": "/reports/test-mtg-123.md"}},
     }
 
-    with patch("api.routes.recording._UPLOAD_DIR") as mock_upload_dir:
+    with patch("interfaces.api.routes.recording._UPLOAD_DIR") as mock_upload_dir:
         mock_upload_dir.glob.return_value = [Path("dummy.wav")]
 
         response = client.post(
@@ -94,7 +94,7 @@ def test_process_endpoint(mock_run_offline_pipeline):
     assert len(mock_run_offline_pipeline.call_args[1]["meeting_id"]) == 12
     assert "template" not in mock_run_offline_pipeline.call_args[1]
 
-@patch("api.routes.recording.run_offline_pipeline")
+@patch("interfaces.api.routes.recording.run_offline_pipeline")
 def test_process_stream_endpoint(mock_run_offline_pipeline):
     async def mock_pipeline(**kwargs):
         progress_callback = kwargs["progress_callback"]
@@ -110,7 +110,7 @@ def test_process_stream_endpoint(mock_run_offline_pipeline):
 
     mock_run_offline_pipeline.side_effect = mock_pipeline
 
-    with patch("api.routes.recording._UPLOAD_DIR") as mock_upload_dir:
+    with patch("interfaces.api.routes.recording._UPLOAD_DIR") as mock_upload_dir:
         mock_upload_dir.glob.return_value = [Path("dummy.wav")]
 
         response = client.post(
@@ -141,7 +141,7 @@ def test_process_stream_endpoint(mock_run_offline_pipeline):
     assert mock_run_offline_pipeline.call_args[1]["meeting_id"] == done_event["meeting_id"]
     assert "template" not in mock_run_offline_pipeline.call_args[1]
 
-@patch("api.routes.websocket.run_meeting_pipeline")
+@patch("interfaces.api.routes.websocket.run_meeting_pipeline")
 def test_websocket_demo_mode(mock_run_pipeline):
     mock_run_pipeline.return_value = MeetingGraphState(
         meeting_id="ws-demo-id",
@@ -153,7 +153,7 @@ def test_websocket_demo_mode(mock_run_pipeline):
             meeting_id="ws-demo-id",
             artifacts=FollowUpArtifacts(markdown_path="/reports/ws-demo-id.md")
         )
-    )
+    ).model_dump()
     
     with client.websocket_connect("/ws/meeting/ws-demo-id") as websocket:
         # 1. 验证握手成功通知
@@ -189,7 +189,7 @@ def test_websocket_demo_mode(mock_run_pipeline):
         assert results["completed"]["data"]["status"] == "COMPLETED"
 
 
-@patch("api.routes.websocket.process_audio_capture")
+@patch("interfaces.api.routes.websocket.process_audio_capture")
 def test_websocket_stop_mode(mock_process_audio_capture):
     mock_process_audio_capture.return_value = (
         MeetingGraphState(
@@ -199,7 +199,7 @@ def test_websocket_stop_mode(mock_process_audio_capture):
             actions=ActionOutput(meeting_id="ws-stop-id"),
             insights=InsightOutput(meeting_id="ws-stop-id", overall_sentiment="neutral"),
             followup=FollowUpOutput(meeting_id="ws-stop-id"),
-        ),
+        ).model_dump(),
         DiarizationResult(
             segments=[DiarizedSegment(start=0.0, end=1.0, text="你好", speaker="Speaker 1")],
             num_speakers=1,

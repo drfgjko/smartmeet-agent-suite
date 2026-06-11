@@ -6,15 +6,15 @@ from typing import Any, Awaitable, Callable
 
 from loguru import logger
 
-from services.media_engine import (
+from engines.media import (
     detect_language,
     diarize,
     DiarizationResult,
     preprocess,
     transcribe,
 )
-from workflows.meeting_workflow import run_meeting_pipeline
-from services.integrations import create_llm_client, FeishuClient, JiraClient
+from intelligence.graphs.meeting_workflow import run_meeting_pipeline
+from infrastructure.external import create_llm_client, FeishuClient, JiraClient
 from utils import find_project_root, dump_outputs_for_json, create_fallback_diarization
 
 ProgressCallback = Callable[[str, dict[str, Any]], Awaitable[None]]

@@ -18,10 +18,10 @@ from schemas import (
     SpeakerStat,
     ChannelConfig
 )
-from services.media_engine import ExtractedFrame
+from engines.media import ExtractedFrame
 from services import ReportComposer, ReportRenderer, MindMapService, ReportDelivery
-from services.integrations.feishu_client import FeishuClient
-from services.integrations.jira_client import JiraClient
+from infrastructure.external.feishu_client import FeishuClient
+from infrastructure.external.jira_client import JiraClient
 
 
 # ----------------------------------------------------------------------
@@ -214,7 +214,7 @@ async def test_reporting_and_delivery_services_individually():
 
         # 2. 测试 ReportRenderer
         renderer = ReportRenderer(reports_dir=temp_path)
-        with mock.patch("services.document_engine.pdf_engine.LaTeXNoteBuilder.compile_pdf", return_value=temp_path / "mock.pdf"):
+        with mock.patch("engines.document.pdf_engine.LaTeXNoteBuilder.compile_pdf", return_value=temp_path / "mock.pdf"):
             # 预先创建空 PDF 绕过真实编译
             pdf_dummy = temp_path / "unit_test_mtg.pdf"
             pdf_dummy.write_bytes(b"pdfdata" * 1000)
@@ -230,7 +230,7 @@ async def test_reporting_and_delivery_services_individually():
 
         # 3. 测试 MindMapService
         mindmap_service = MindMapService(llm_client=mock_llm, reports_dir=temp_path)
-        mm_path, mm_generated = await mindmap_service.generate_and_save_mindmap(
+        mm_path, _, mm_generated = await mindmap_service.generate_and_save_mindmap(
             meeting_id="unit_test_mtg",
             final_report_md=report_md
         )

@@ -15,9 +15,9 @@ from loguru import logger
 from typing import Any
 
 from utils import find_project_root
-from services.media_engine import ExtractedFrame
-from services.document_engine.pdf_engine import LaTeXNoteBuilder
-from services.document_engine.html_engine import HTMLNoteBuilder
+from engines.media import ExtractedFrame
+from engines.document.pdf_engine import LaTeXNoteBuilder
+from engines.document.html_engine import HTMLNoteBuilder
 
 
 class ReportRenderer:
@@ -68,8 +68,8 @@ class ReportRenderer:
         try:
             logger.info("[ReportRenderer] 正在通过纯 Python 解析器生成 LaTeX...")
             import time
-            from services.document_engine.templates.latex_base import LATEX_PREAMBLE, LATEX_POSTAMBLE
-            from services.document_engine.markdown_parser import MarkdownToLatexConverter
+            from engines.document.templates.latex_base import LATEX_PREAMBLE, LATEX_POSTAMBLE
+            from engines.document.markdown_parser import MarkdownToLatexConverter
             
             date_str = time.strftime("%Y-%m-%d")
             preamble = LATEX_PREAMBLE.replace("{title}", title or "SmartMeet 会议报告")
@@ -111,7 +111,7 @@ class ReportRenderer:
         else:
             logger.warning("[ReportRenderer] LaTeX PDF 生成失败或未安装引擎。回退到 HTML-to-PDF 降级模式...")
             try:
-                from services.document_engine.html_engine import HTMLNoteBuilder
+                from engines.document.html_engine import HTMLNoteBuilder
                 html_builder = HTMLNoteBuilder()
                 html_content = html_builder.build_html(
                     notes_md=final_report_md,

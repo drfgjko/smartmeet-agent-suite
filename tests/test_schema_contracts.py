@@ -186,7 +186,7 @@ class TestMeetingGraphStateContract:
         assert isinstance(state.followup, FollowUpOutput)
 
     def test_accepts_media_engine_types(self):
-        from services.media_engine import DiarizationResult, DiarizedSegment, ExtractedFrame
+        from engines.media import DiarizationResult, DiarizedSegment, ExtractedFrame
         from pathlib import Path
 
         transcript = DiarizationResult(

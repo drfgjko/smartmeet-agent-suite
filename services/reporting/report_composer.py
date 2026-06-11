@@ -13,7 +13,7 @@ from typing import Any
 from loguru import logger
 
 from schemas import SummaryOutput, ActionOutput, InsightOutput
-from services.media_engine import ExtractedFrame
+from engines.media import ExtractedFrame
 from .markdown_formatter import (
     format_summary_markdown,
     format_actions_markdown,

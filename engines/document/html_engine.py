@@ -14,7 +14,7 @@ from pathlib import Path
 from loguru import logger
 
 from utils import find_project_root
-from services.media_engine import ExtractedFrame
+from engines.media import ExtractedFrame
 
 class HTMLNoteBuilder:
     def __init__(self):

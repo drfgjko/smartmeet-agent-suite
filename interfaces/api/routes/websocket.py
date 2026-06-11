@@ -7,8 +7,8 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from loguru import logger
 
 from services.pipeline import emit_agent_events, process_audio_capture
-from services.media_engine import DiarizationResult, DiarizedSegment
-from workflows.meeting_workflow import run_meeting_pipeline
+from engines.media import DiarizationResult, DiarizedSegment
+from intelligence.graphs.meeting_workflow import run_meeting_pipeline
 
 router = APIRouter(tags=["websocket"])
 

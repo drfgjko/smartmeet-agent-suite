@@ -23,7 +23,7 @@ from schemas import (
 )
 from services import ReportDelivery
 from services.delivery import WebhookService
-from services.integrations import FeishuClient, JiraClient, sync_actions_to_external
+from infrastructure.external import FeishuClient, JiraClient, sync_actions_to_external
 
 router = APIRouter(prefix="/api/v1", tags=["deliver"])
 

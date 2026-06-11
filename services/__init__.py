@@ -15,7 +15,7 @@ from pathlib import Path
 
 from .reporting import ReportComposer, ReportRenderer, MindMapService
 from .delivery import ReportDelivery
-from .core.checkpoint_service import CheckpointService
+from infrastructure.persistence.checkpoint_service import CheckpointService
 
 __all__ = [
     "ReportComposer",

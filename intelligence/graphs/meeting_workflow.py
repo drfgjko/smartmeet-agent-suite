@@ -10,12 +10,12 @@ from typing import Any
 from langgraph.graph import StateGraph, START, END
 from loguru import logger
 
-from agents.summary_agent import SummaryAgent
-from agents.action_agent import ActionAgent
-from agents.insight_agent import InsightAgent
-from agents.speaker_inference_agent import SpeakerInferenceAgent
+from intelligence.nodes.summary_agent import SummaryAgent
+from intelligence.nodes.action_agent import ActionAgent
+from intelligence.nodes.insight_agent import InsightAgent
+from intelligence.nodes.speaker_inference_agent import SpeakerInferenceAgent
 from schemas import MeetingGraphState, JobConfig
-from services.media_engine import DiarizationResult, ExtractedFrame
+from engines.media import DiarizationResult, ExtractedFrame
 
 _compiled_graph_cache: dict[str, Any] = {}
 

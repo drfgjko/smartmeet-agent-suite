@@ -6,7 +6,7 @@ from typing import Any, Awaitable, Callable
 
 from loguru import logger
 
-from services.media_engine import (
+from engines.media import (
     align_frames_to_subtitles,
     detect_language,
     diarize,
@@ -17,10 +17,10 @@ from services.media_engine import (
     preprocess,
     transcribe,
 )
-from workflows.meeting_workflow import run_meeting_pipeline
-from services.integrations import create_llm_client, FeishuClient, JiraClient
+from intelligence.graphs.meeting_workflow import run_meeting_pipeline
+from infrastructure.external import create_llm_client, FeishuClient, JiraClient
 from schemas import JobConfig
-from services.core.checkpoint_service import CheckpointService
+from infrastructure.persistence.checkpoint_service import CheckpointService
 from utils import find_project_root, dump_outputs_for_json, create_fallback_diarization, parse_transcript_file
 from schemas import SummaryOutput, ActionOutput, InsightOutput
 
@@ -279,7 +279,7 @@ async def run_offline_pipeline(
             )
 
         if job_config.enable_task_sync and actions:
-            from services.integrations import sync_actions_to_external
+            from infrastructure.external import sync_actions_to_external
             await sync_actions_to_external(
                 items=actions.action_items,
                 meeting_id=meeting_id,

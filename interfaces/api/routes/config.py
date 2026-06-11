@@ -131,7 +131,7 @@ async def update_config(payload: ConfigPayload):
 @router.get("/status")
 async def check_status():
     """探测 LLM 及各个集成的可用性"""
-    from services.integrations import create_llm_client, FeishuClient, JiraClient
+    from infrastructure.external import create_llm_client, FeishuClient, JiraClient
     
     status = {
         "llm": False,

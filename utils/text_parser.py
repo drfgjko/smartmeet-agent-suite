@@ -5,7 +5,7 @@
 import re
 from typing import Any
 from pathlib import Path
-from services.media_engine import DiarizationResult, DiarizedSegment
+from engines.media import DiarizationResult, DiarizedSegment
 
 
 def parse_transcript_file(path: Path) -> DiarizationResult:

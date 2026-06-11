@@ -19,6 +19,7 @@ import os
 import sys
 import asyncio
 from pathlib import Path
+import pytest
 
 # 将项目根目录加入到环境变量，以便找到 services 模块
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -33,7 +34,7 @@ import httpx
 # 加载环境变量
 load_dotenv()
 
-from services.integrations.feishu_client import FeishuClient
+from infrastructure.external.feishu_client import FeishuClient
 
 
 async def get_chats(client: FeishuClient):
@@ -65,6 +66,7 @@ async def get_chats(client: FeishuClient):
             return []
 
 
+@pytest.mark.asyncio
 async def test_feishu():
     print("开始执行飞书连通性测试...\n")
     
