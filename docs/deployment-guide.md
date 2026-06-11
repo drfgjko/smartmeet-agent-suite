@@ -121,7 +121,7 @@ curl http://localhost:8000/health
 ### 4.2 启动 Web 前端控制台（可选）
 
 ```bash
-cd interfaces/web
+cd frontend
 npm install
 npm run dev
 ```

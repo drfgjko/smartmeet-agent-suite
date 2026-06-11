@@ -66,9 +66,9 @@ conda env create -f environment.yml
 conda activate smartmeet
 
 # 安装前端依赖
-cd interfaces/web
+cd frontend
 npm install
-cd ../..
+cd ..
 
 # 复制并填写配置文件 (配置 LLM_API_KEY)
 cp .env.example .env

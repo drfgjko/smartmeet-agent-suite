@@ -2,7 +2,7 @@ import json
 import re
 from pathlib import Path
 
-demo_dir = Path('interfaces/web/public/demos')
+demo_dir = Path('frontend/public/demos')
 for md_file in demo_dir.rglob('*_mindmap.md'):
     content = md_file.read_text(encoding='utf-8')
     match = re.search(r'```mermaid\s*(.*?)\s*```', content, re.DOTALL)

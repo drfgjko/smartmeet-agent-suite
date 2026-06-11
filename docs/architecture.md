@@ -161,7 +161,7 @@ graph TB
 
 | 模块 | 职责 | 技术栈 |
 |------|------|--------|
-| [interfaces/web/](file:///d:/Workspace/agent-project/smartmeet-agent-suite/interfaces/web/) | 前端控制台 | Next.js 14 + React + TailwindCSS |
+| [frontend/](file:///d:/Workspace/agent-project/smartmeet-agent-suite/frontend/) | 前端控制台 | Next.js 14 + React + TailwindCSS |
 | [interfaces/cli/](file:///d:/Workspace/agent-project/smartmeet-agent-suite/interfaces/cli/) | 命令行客户端 | Python Click + Rich |
 
 ---

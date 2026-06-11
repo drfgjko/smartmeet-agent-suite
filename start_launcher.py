@@ -62,14 +62,14 @@ def _print_banner() -> None:
         print()
 
 def _check_prerequisites() -> bool:
-    web_dir = PROJECT_ROOT / "interfaces" / "web"
+    web_dir = PROJECT_ROOT / "frontend"
     if not web_dir.exists():
         print(f"[错误] 前端目录不存在: {web_dir}")
         return False
 
     node_modules = web_dir / "node_modules"
     if not node_modules.exists():
-        print("[错误] 前端依赖未安装，请先在 interfaces/web/ 目录下执行: npm install")
+        print("[错误] 前端依赖未安装，请先在 frontend/ 目录下执行: npm install")
         return False
 
     api_main = PROJECT_ROOT / "interfaces" / "api" / "main.py"
@@ -89,7 +89,7 @@ def _build_window_cmd(title: str, work_dir: Path, command: str) -> str:
 
 def _launch_frontend() -> subprocess.Popen | None:
     print("[1/2] 正在启动前端服务 (Next.js)...")
-    web_dir = PROJECT_ROOT / "interfaces" / "web"
+    web_dir = PROJECT_ROOT / "frontend"
     if IS_WINDOWS:
         cmd = _build_window_cmd("SmartMeet Frontend - Next.js", web_dir, "npm run dev")
         subprocess.run(cmd, shell=True, cwd=str(PROJECT_ROOT))
